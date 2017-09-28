@@ -28,8 +28,6 @@ package org.alfresco.po.share.site.document;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import java.awt.Robot;
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -41,6 +39,7 @@ import org.alfresco.po.RenderTime;
 import org.alfresco.po.exception.PageException;
 import org.alfresco.po.exception.PageOperationException;
 import org.alfresco.po.exception.PageRenderTimeException;
+import org.alfresco.po.share.SharePopup;
 import org.alfresco.po.share.repository.ModelsPage;
 import org.alfresco.po.share.site.UpdateFilePage;
 import org.alfresco.po.share.site.document.ConfirmDeletePage.Action;
@@ -82,7 +81,6 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
     private static final String FAVOURITE_CONTENT = "a[class*='favourite-action']";
     private static final String LIKE_CONTENT = "a[class*='like-action']";
     private static final String LIKE_COUNT = "span.likes-count";
-    private static final String ACTIONS_LIST = "div.action-set>div";
     private static final String RULES_ICON = "img[alt='rules']";
     private static final String SELECT_CHECKBOX = "input[id^='checkbox-yui']";
     private static final By INFO_BANNER = By.cssSelector("div.info-banner");
@@ -100,6 +98,13 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
     protected By TAG_LINK_LOCATOR = By.cssSelector("div.yui-dt-liner>div>span>span>a.tag-link");
     protected String THUMBNAIL = "td.yui-dt-col-thumbnail>div>span>a";
     protected String THUMBNAIL_TYPE = "td.yui-dt-col-thumbnail>div>span";
+    protected String THUMBNAIL_LINK_FOLDER = "td.yui-dt-col-thumbnail>div>span.folder>span.link";
+    protected String THUMBNAIL_LINK_FILE = "td.yui-dt-col-thumbnail>div>span.thumbnail>span.link";
+    protected String LOCATE_LINKED_ITEM = "div#onActionLocate a";
+    protected String DELETE_LINK = "div#onActionDelete a";
+    protected String COPY_LINK = "div#onActionCopyTo a";
+    protected String MOVE_LINK = "div#onActionMoveTo a";
+    protected static final String ACTIONS_LIST = "div.action-set>div";
     protected String INPUT_TAG_NAME = "div.inlineTagEdit input";
     protected String INPUT_CONTENT_NAME = "input[name='prop_cm_name']";
     protected String nodeRef;
@@ -163,9 +168,14 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
     {
         try
         {
-            findAndWait(By.cssSelector(FILENAME_IDENTIFIER)).click();
+            WebElement element = findAndWait(By.cssSelector(FILENAME_IDENTIFIER));
+            element.click();
             domEventCompleted();
             return getCurrentPage();
+        }
+        catch (NoSuchElementException nse)
+        {
+            logger.error("No such element", nse);
         }
         catch (TimeoutException te)
         {
@@ -350,17 +360,29 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
      * 
      * @return List of {@link WebElement} available for the selected Content
      */
-    public List<WebElement> getContentActions()
+    /*
+     * (non-Javadoc)
+     * @see org.alfresco.po.share.site.document.FileDirectoryInfoInterface#getContentActions()
+     */
+    @Override
+    public List<String> getContentActions()
     {
+        List<String> actions = new ArrayList<>();
+
         try
         {
-            return selectContentActions().findElements(By.cssSelector(ACTIONS_LIST));
+            mouseOver(selectContentActions());           
+            List<WebElement> actionElements = findElements(By.cssSelector(ACTIONS_LIST));
+            for (WebElement webElement : actionElements)
+            {
+                actions.add(webElement.getText());
+            }
         }
-        catch (Exception e)
+        catch (NoSuchElementException e)
         {
-            logger.error("Error getting Actions" + e.toString());
+            throw new NoSuchElementException("Not able to find actions", e);
         }
-        return Collections.emptyList();
+        return actions;
     }
 
     /*
@@ -739,7 +761,47 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
         try
         {
             WebElement thumbnailType = findElement(By.cssSelector(THUMBNAIL_TYPE));
-            return thumbnailType.getAttribute("class").contains("folder");
+            return (thumbnailType.getAttribute("class").contains("folder") && (!isLinkToFolder()) );
+        }
+        catch (Exception e)
+        {
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if content in the selected data row on DocumentLibrary is
+     * link to a folder.
+     *
+     * @return {boolean} <tt>true</tt> if the content is of type link to folder.
+     */
+    @Override
+    public boolean isLinkToFolder()
+    {
+        try
+        {
+            WebElement thumbnailType = findElement(By.cssSelector(THUMBNAIL_LINK_FOLDER));
+            return (thumbnailType.isDisplayed());
+        }
+        catch (Exception e)
+        {
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if content in the selected data row on DocumentLibrary is
+     * link to file.
+     *
+     * @return {boolean} <tt>true</tt> if the content is of type link to file.
+     */
+    @Override
+    public boolean isLinkToFile()
+    {
+        try
+        {
+            WebElement thumbnailType = findElement(By.cssSelector(THUMBNAIL_LINK_FILE));
+            return (thumbnailType.isDisplayed());
         }
         catch (Exception e)
         {
@@ -1073,6 +1135,115 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
         return false;
     }
 
+    /*
+     * (non-Javadoc)
+     * @see org.alfresco.po.share.site.document.FileDirectoryInfoInterface#isLocateLinkedItemDisplayed()
+     */
+    @Override
+    public boolean isLocateLinkedItemDisplayed()
+    {
+        try
+        {
+            mouseOver(selectContentActions());
+            
+            WebElement action = findElement(By.cssSelector(LOCATE_LINKED_ITEM));
+            return action.isDisplayed();
+        }
+        catch (NoSuchElementException e)
+        {
+            logger.trace("Locate Linked Item is not displayed", e);
+        }
+        return false;
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see org.alfresco.po.share.site.document.FileDirectoryInfoInterface#isDeleteLinkDisplayed()
+     */
+    @Override
+    public boolean isDeleteLinkDisplayed() 
+    {
+        try 
+        {
+            mouseOver(selectContentActions());
+            
+            WebElement action = findElement(By.cssSelector(DELETE_LINK));
+            return action.isDisplayed();
+        } 
+        catch (NoSuchElementException e) 
+        {
+            logger.trace("Delete Link is not displayed", e);
+        }
+        return false;
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see org.alfresco.po.share.site.document.FileDirectoryInfoInterface#selectDeleteLink()
+     */
+    @Override
+    public HtmlPage selectDeleteLink()
+    {
+        try
+        {
+            if (isDeleteLinkDisplayed())
+            {
+                WebElement deleteLink = findAndWait(By.cssSelector(DELETE_LINK));
+                deleteLink.click();
+            }
+            else 
+            {
+                throw new NoSuchElementException("Delete Link not visible");
+            }
+        }
+        catch (TimeoutException e)
+        {
+            throw new PageOperationException("Exceeded time to find the css ", e);
+        }
+        catch (StaleElementReferenceException st)
+        {
+            throw new StaleElementReferenceException("Unable to find the css ", st);
+        }
+
+        return factoryPage.getPage(driver);
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see org.alfresco.po.share.site.document.FileDirectoryInfoInterface#deleteLink()
+     */
+    @Override
+    public HtmlPage deleteLink()
+    {
+        SharePopup confirmDelete = selectDeleteLink().render();
+        return confirmDelete.clickActionByName(Action.Delete.toString());
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see org.alfresco.po.share.site.document.FileDirectoryInfoInterface#selectLocateLinkedItem()
+     */
+    @Override
+    public HtmlPage selectLocateLinkedItem()
+    {
+        try 
+        {
+            if (isLocateLinkedItemDisplayed())
+            {
+                WebElement locateLinkedItem = findElement(By.cssSelector(LOCATE_LINKED_ITEM));
+                locateLinkedItem.click();
+                return getCurrentPage().render();
+            }
+            throw new NoSuchElementException("Locate Linked Item not visible");
+        }
+        catch (TimeoutException te)
+        {
+            logger.error("Unable to find Locate Linked Item ", te);
+            throw new PageException("Unable to find Locate Linked Item ", te);
+        }
+    }
+
+    
     /*
      * (non-Javadoc)
      * @see org.alfresco.po.share.site.document.FileDirectoryInfoInterface#selectManageRules()
@@ -1426,10 +1597,19 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
     {
         try
         {
-            return findElement(COMMENT_LINK).isDisplayed();
+            WebElement commentLink = findElement(COMMENT_LINK);
+            return commentLink.isDisplayed();
         }
         catch (NoSuchElementException nse)
         {
+        }
+        catch (TimeoutException ex)
+        {
+            // no log needed due to negative cases.
+        }
+        catch (Exception ex)
+        {
+            // no log needed due to negative cases.
         }
         return false;
     }
@@ -1447,6 +1627,64 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
             WebElement shareLink = findElement(QUICK_SHARE_LINK);
 
             return shareLink.isDisplayed();
+        }
+        catch (NoSuchElementException nse)
+        {
+            // no log needed due to negative cases.
+        }
+        catch (TimeoutException ex)
+        {
+            // no log needed due to negative cases.
+        }
+        catch (Exception ex)
+        {
+            // no log needed due to negative cases.
+        }
+        return false;
+    }
+
+    /**
+     * Check if Like is present.
+     *
+     * @return boolean
+     */
+    @Override
+    public boolean isLikeVisible()
+    {
+        try
+        {
+            WebElement likeLink = findElement(By.cssSelector(LIKE_CONTENT));
+
+            return likeLink.isDisplayed();
+        }
+        catch (NoSuchElementException nse)
+        {
+            // no log needed due to negative cases.
+        }
+        catch (TimeoutException ex)
+        {
+            // no log needed due to negative cases.
+        }
+        catch (Exception ex)
+        {
+            // no log needed due to negative cases.
+        }
+        return false;
+    }
+
+    /**
+     * Check if Favorite is present.
+     *
+     * @return boolean
+     */
+    @Override
+    public boolean isFavoriteVisible()
+    {
+        try
+        {
+            WebElement favLink = findElement(By.cssSelector(FAVOURITE_CONTENT));
+
+            return favLink.isDisplayed();
         }
         catch (NoSuchElementException nse)
         {
@@ -2189,7 +2427,8 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
     {
         try
         {
-            return driver.findElement(MORE_ACTIONS_MENU).isDisplayed();
+            WebElement moreMenu = driver.findElement(MORE_ACTIONS_MENU); 
+            return moreMenu.isDisplayed();
         }
         catch (NoSuchElementException te)
         {
@@ -2286,11 +2525,8 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
             cancelEditing.click();
             waitUntilMessageAppearAndDisappear("edited");
 
-            Robot robot = new Robot();
-            robot.keyPress(KeyEvent.VK_ESCAPE);
-            robot.keyRelease(KeyEvent.VK_ESCAPE);
 
-            return factoryPage.instantiatePage(driver, DocumentLibraryPage.class);
+            return factoryPage.getPage(driver).render();
         }
         catch (NoSuchElementException nse)
         {
@@ -2334,11 +2570,11 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
     public boolean isTypeRecord()
     {
         boolean isTypeRecord = false;
-        WebElement rec = findElement(By.cssSelector(IN_COMPLETE_RECORD));
-        String rec_text = rec.getText();
 
         try
         {
+            WebElement rec = findElement(By.cssSelector(IN_COMPLETE_RECORD));
+            String rec_text = rec.getText();
             if (rec_text != null && rec_text.contains("Incomplete Record"))
             {
                 isTypeRecord = true;
@@ -2346,8 +2582,7 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
         }
         catch (Exception e)
         {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            logger.info("Error checking Record: ", e);
         }
 
         return isTypeRecord;
@@ -2362,11 +2597,11 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
     public boolean isFolderType()
     {
         boolean isTypeFolder = false;
-        WebElement rec = findElement(By.cssSelector(IS_FOLDER));
-        String rec_text = rec.getAttribute("src");
 
         try
         {
+            WebElement rec = findElement(By.cssSelector(IS_FOLDER));
+            String rec_text = rec.getAttribute("src");
             if (rec_text != null && rec_text.contains("png"))
             {
                 isTypeFolder = true;
@@ -2374,8 +2609,7 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
         }
         catch (Exception e)
         {
-
-            e.printStackTrace();
+            logger.info("Error checking if it's a folder: ", e);
         }
         return isTypeFolder;
     }
@@ -2472,7 +2706,7 @@ public abstract class FileDirectoryInfoImpl extends PageElement implements FileD
      */
     private String getModelInfo(ModelInfo infoRequired)
     {
-        PageUtils.checkMandotaryParam("Specify Which Model Info is Required", infoRequired);
+        PageUtils.checkMandatoryParam("Specify Which Model Info is Required", infoRequired);
 
         if (!(getCurrentPage() instanceof ModelsPage))
         {

@@ -55,6 +55,7 @@ import ru.yandex.qatools.htmlelements.element.TextInput;
 public class AdvanceSearchPage extends SharePage
 {
     protected static final By KEYWORD_SEARCH = By.cssSelector("input[id$='default-search-text']");
+    protected static final By NAME_SEARCH = By.cssSelector("input[id$='prop_cm_name']");
     protected static final By TITLE_SEARCH = By.cssSelector("textarea[id$='prop_cm_title']");
     protected static final By DESCRIPTION_SEARCH = By.cssSelector("textarea[id$='prop_cm_description']");
     protected static final By MODIFIER_SEARCH = By.cssSelector("input[id$='prop_cm_modifier']");
@@ -68,7 +69,8 @@ public class AdvanceSearchPage extends SharePage
     protected static final By CONTENT_SEARCH_FORM_DROPDOWN = By.cssSelector("button[id$='selected-form-button-button']");
     protected static final By LOOK_FOR_DRP_DWN = By.cssSelector(".bd ul");
     protected static final By BACK_TO_RESULTS_LINK = By.cssSelector("#HEADER_SEARCH_BACK_TO_RESULTS");
-    protected static final By BACK_TO_SITE_LINK = By.cssSelector("#HEADER_SEARCH_BACK_TO_SITE_DASHBOARD");
+    //protected static final By BACK_TO_SITE_LINK = By.cssSelector("#HEADER_SEARCH_BACK_TO_SITE_DASHBOARD");
+    protected static final By BACK_TO_SITE_LINK = By.cssSelector("#HEADER_SEARCH_BACK_TO_SITE_DEFAULT_text");
     private final RenderElement contentSearchFormDropdownElement = getVisibleRenderElement(CONTENT_SEARCH_FORM_DROPDOWN);
     private final RenderElement searchButtonElement = getVisibleRenderElement(SEARCH_BUTTON);
 
@@ -144,8 +146,11 @@ public class AdvanceSearchPage extends SharePage
         {
             throw new UnsupportedOperationException("Search term is required to perform a search");
         }
-        name.clear();
-        name.sendKeys(nameSearchText);
+        WebElement nameElement = findElementDisplayed(NAME_SEARCH);
+        nameElement.clear();
+        nameElement.sendKeys(nameSearchText);
+//        name.clear();
+//        name.sendKeys(nameSearchText);
     }
 
     /**

@@ -178,6 +178,9 @@ var sideBarMenu = {
             name: "alfresco/html/Label",
             align: "left",
             config: {
+               style: {
+                  lineHeight: "22px"
+               },
                label: msg.get("faceted-search.facet-menu.instruction")
             }
          }
@@ -293,6 +296,7 @@ function getSortFieldsFromConfig()
             value: value,
             group: "DOCUMENT_LIBRARY_SORT_FIELD",
             publishTopic: "ALF_DOCLIST_SORT_FIELD_SELECTION",
+            hashName: "sortField",
             checked: checked,
             publishPayload: {
                label: msg.get(label),
@@ -329,6 +333,68 @@ var sortMenu = {
    }
 };
 
+var createAlfDocumentActionMenuItem = function (action) {
+   return {
+      id: action.id,
+      name: "alfresco/documentlibrary/AlfDocumentActionMenuItem",
+      config: {
+         label: action.label,
+         iconImage: url.context + "/res/components/documentlibrary/actions/" + action.icon + "-16.png",
+         type: action.type,
+         permission: action.permission,
+         asset: action.asset,
+         href: action.href,
+         hasAspect: action.hasAspect,
+         notAspect: action.notAspect,
+         publishTopic: "ALF_SELECTED_DOCUMENTS_ACTION_REQUEST",
+         publishPayload: {
+            action: action.id
+         }
+      }
+   }
+};
+
+function getBulkActionWidgets()
+{
+   var actionWidgets = [];
+   var multiSelectConfig = config.scoped["DocumentLibrary"]["multi-select"];
+   var multiSelectActions = multiSelectConfig.getChildren("action");
+   
+   var multiSelectAction;
+   for (var i = 0; i < multiSelectActions.size(); i++)
+   {
+      multiSelectAction = multiSelectActions.get(i);
+      attr = multiSelectAction.attributes;
+
+      // See SHA-1876 - only allow actions supported by Aikau
+      if (attr.id === "onActionDownload" ||
+          attr.id === "onActionCopyTo" ||
+          attr.id === "onActionMoveTo" ||
+          attr.id === "onActionAssignWorkflow" ||
+          attr.id === "onActionDelete")
+      {
+         if(!attr["syncMode"] || attr["syncMode"].toString() == syncMode.value)
+         {
+            // Multi-Select Actions
+            action = {
+               icon: attr["icon"] ? attr["icon"].toString() : "",
+               id: attr["id"] ? attr["id"].toString() : "",
+               type: attr["type"] ? attr["type"].toString() : "",
+               permission: attr["permission"] ? attr["permission"].toString() : "",
+               asset: attr["asset"] ? attr["asset"].toString() : "",
+               href: attr["href"] ? attr["href"].toString() : "",
+               label: attr["label"] ? attr["label"].toString() : "",
+               hasAspect: attr["hasAspect"] ? attr["hasAspect"].toString() : "",
+               notAspect: attr["notAspect"] ? attr["notAspect"].toString() : ""
+            };
+
+            actionWidgets.push(createAlfDocumentActionMenuItem(action))
+         }
+      }
+   }
+   return actionWidgets;
+}
+
 // Compose result menu bar
 var searchResultsMenuBar = {
    id: "FCTSRCH_RESULTS_MENU_BAR",
@@ -336,10 +402,83 @@ var searchResultsMenuBar = {
    config: {
       widgets: [
          {
+            id: "SEARCH_RESULTS_MENU_BAR",
+            name: "alfresco/menus/AlfMenuBar",
+            config: {
+               widgets: [
+                  {
+                     id: "SELECTED_LIST_ITEMS",
+                     name: "alfresco/documentlibrary/AlfSelectDocumentListItems",
+                     config: {
+                        style: {
+                           paddingLeft: "5px",
+                           marginLeft: 0
+                        },
+                        widgets: [
+                           {
+                              name: "alfresco/menus/AlfMenuItem",
+                              config: {
+                                 label: "select.all.label",
+                                 publishTopic: "ALF_DOCLIST_FILE_SELECTION",
+                                 publishPayload: {
+                                    label: "select.all.label",
+                                    value: "selectAll"
+                                 }
+                              }
+                           },
+                           {
+                              name: "alfresco/menus/AlfMenuItem",
+                              config: {
+                                 label: "select.none.label",
+                                 publishTopic: "ALF_DOCLIST_FILE_SELECTION",
+                                 publishPayload: {
+                                    label: "select.none.label",
+                                    value: "selectNone"
+                                 }
+                              }
+                           },
+                           {
+                              name: "alfresco/menus/AlfMenuItem",
+                              config: {
+                                 label: "invert.selection.label",
+                                 publishTopic: "ALF_DOCLIST_FILE_SELECTION",
+                                 publishPayload: {
+                                    label: "invert.selection.label",
+                                    value: "selectInvert"
+                                 }
+                              }
+                           }
+                        ]
+                     }
+                  },
+                  {
+                     id: "SELECTED_ITEMS_MENU",
+                     name: "alfresco/documentlibrary/AlfSelectedItemsMenuBarPopup",
+                     config: {
+                        label: msg.get("faceted-search.selected-items-menu.label"),
+                        itemKeyProperty: "nodeRef",
+                        widgets: [
+                           {
+                              id: "SELECTED_ITEMS_ACTIONS_GROUP",
+                              name: "alfresco/menus/AlfMenuGroup",
+                              config: {
+                                 widgets: getBulkActionWidgets()
+                              }
+                           } 
+                        ]
+                     }
+                  }
+               ]
+            }
+         },
+         {
             id: "FCTSRCH_RESULTS_COUNT_LABEL",
             name: "alfresco/html/Label",
             align: "left",
             config: {
+               style: {
+                  lineHeight: "22px"
+               },
                label: msg.get("faceted-search.results-menu.no"),
                subscriptionTopic: "ALF_SEARCH_RESULTS_COUNT",
                visibilityConfig: {
@@ -372,6 +511,8 @@ var searchResultsMenuBar = {
                      name: "alfresco/menus/AlfMenuBarToggle",
                      config: {
                         visibilityConfig: hideOnNotSortableConfig,
+                        hashName: "sortAscending",
+                        checkedValue: "true",
                         checked: true,
                         onConfig: {
                            title: msg.get("faceted-search.sort-order-desc.title"),
@@ -496,7 +637,10 @@ var searchDocLib = {
                      id: "FCTSRCH_SEARCH_RESULT",
                      name: "alfresco/search/AlfSearchResult",
                      config: {
-                        enableContextMenu: false
+                        siteLandingPage: "",
+                        enableContextMenu: false,
+                        showSelector: true,
+                        showSearchTermHighlights: true
                      }
                   }
                ]
@@ -514,15 +658,21 @@ var searchDocLib = {
                      id: "FCTSRCH_GALLERY_VIEW_THUMBNAIL_DOC_OR_FOLDER",
                      name: "alfresco/search/SearchGalleryThumbnail",
                      config: {
+                        itemKey: "nodeRef",
                         widgetsForSelectBar: [
+                           {
+                              name: "alfresco/renderers/Selector",
+                              config: {
+                                 updateOnSelection: true
+                              }
+                           },
                            {
                               id: "FCTSRCH_GALLERY_VIEW_MORE_INFO_OR_FOLDER",
                               name: "alfresco/renderers/MoreInfo",
                               align: "right",
                               config: {
                                  filterActions: true,
-                                 xhrRequired: true,
-                                 
+                                 xhrRequired: true
                               }
                            }
                         ],
@@ -541,6 +691,9 @@ var searchDocLib = {
                      name: "alfresco/search/SearchGalleryThumbnail",
                      config: {
                         widgetsForSelectBar: [
+                           {
+                              name: "alfresco/renderers/Selector"
+                           },
                            {
                               id: "FCTSRCH_GALLERY_VIEW_MORE_INFO_OTHER",
                               name: "alfresco/renderers/MoreInfo",
@@ -841,6 +994,9 @@ var scopeSelection = {
             id: "FCTSRCH_TOP_MENU_BAR_SCOPE_LABEL",
             name: "alfresco/html/Label",
             config: {
+               style: {
+                  lineHeight: "22px"
+               },
                label: msg.get("faceted-search.scope.label")
             }
          },
@@ -875,12 +1031,19 @@ var scopeSelection = {
 main.config.widgets.splice(2, 0, scopeSelection);
 
 // Append services with those required for search
-services.push("alfresco/services/SearchService",
+services.push({
+                 name: "alfresco/services/SearchService",
+                 config: {
+                    highlightFragmentSize: 100,
+                    highlightSnippetCount: 255
+                 }
+              },
               "alfresco/services/ActionService",
               {
                  name: "alfresco/services/actions/CopyMoveService",
                  config: {
-                     repoNodeRef: repoRootNode
+                    repoNodeRef: repoRootNode,
+                    supportLinkCreation: true
                  }
               },
               "alfresco/services/actions/SimpleWorkflowService",

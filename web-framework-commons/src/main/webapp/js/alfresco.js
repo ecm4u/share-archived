@@ -5342,7 +5342,7 @@ Alfresco.util.createInsituEditor = function(p_context, p_params, p_callback)
                 * which we will need to filter on the server.
                 *
                 **************************************************************************************/
-               var oDS = new YAHOO.util.XHRDataSource(Alfresco.constants.PROXY_URI + "api/forms/picker/category/workspace/SpacesStore/tag:tag-root/children?selectableType=cm:category&size=100&aspect=cm:taggable&searchTerm=");
+               var oDS = new YAHOO.util.XHRDataSource(Alfresco.constants.PROXY_URI + "api/forms/picker/category/workspace/SpacesStore/tag:tag-root/children?selectableType=cm:category&size=10&aspect=cm:taggable&searchTerm=");
                oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;
                oDS.connXhrMode = "cancelStaleRequests";
                // This schema indicates where to find the tag name in the JSON response
@@ -5357,7 +5357,7 @@ Alfresco.util.createInsituEditor = function(p_context, p_params, p_callback)
                {
                   return sQuery;
                };
-               this.tagAutoComplete.queryDelay = 0.1           // Throttle requests sent
+               this.tagAutoComplete.queryDelay = 0.3;           // Throttle requests sent
                this.tagAutoComplete.animSpeed = 0.08;
                this.tagAutoComplete.itemSelectEvent.subscribe(function(type, args)
                {
@@ -6208,6 +6208,63 @@ Alfresco.util.navigateTo = function(uri, method, parameters)
 };
 
 /**
+ * Generates a link to a site page using a template
+ *
+ * @method Alfresco.util.siteLink
+ * @param siteId {string} Site short name
+ * @param siteTitle {string} Site display name. "siteId" used if this param is empty or not supplied
+ * @param pageId {string} page name such as "documentlibrary" or "dashboard" or ""
+ * @param linkAttr {string} Optional attributes to add to the <a> tag, e.g. "class"
+ * @param disableLink {boolean} Optional attribute instructing the link to be disabled
+ *                             (ie returning a span element rather than an a href element)
+ * @return {string} The populated HTML Link
+ * @static
+ */
+Alfresco.util.sitePageLink = function(siteId, siteTitle, pageId, linkAttr, disableLink)
+{
+   if (!YAHOO.lang.isString(siteId) || siteId.length === 0)
+   {
+      return "";
+   }
+
+   var html = Alfresco.util.encodeHTML(YAHOO.lang.isString(siteTitle) && siteTitle.length > 0 ? siteTitle : siteId),
+         template = Alfresco.constants.URI_TEMPLATES["sitepage"],
+         uri = "";
+
+   // If the "sitepage" template doesn't exist or is empty, or we're in portlet mode we'll just return the site's title || id
+   if (disableLink || YAHOO.lang.isUndefined(template) || template.length === 0 || Alfresco.constants.PORTLET)
+   {
+      return '<span>' + html + '</span>';
+   }
+
+   // Generate the link
+   uri = Alfresco.util.uriTemplate("sitepage",
+         {
+            site: siteId,
+            pageid: pageId
+         });
+
+   return '<a href="' + uri + '" ' + (linkAttr || "") + '>' + html + '</a>';
+};
+
+/**
+ * Generates a link to a site default page
+ *
+ * @method Alfresco.util.siteDefaultPageLink
+ * @param siteId {string} Site short name
+ * @param siteTitle {string} Site display name. "siteId" used if this param is empty or not supplied
+ * @param linkAttr {string} Optional attributes to add to the <a> tag, e.g. "class"
+ * @param disableLink {boolean} Optional attribute instructing the link to be disabled
+ *                             (ie returning a span element rather than an a href element)
+ * @return {string} The populated HTML Link
+ * @static
+ */
+Alfresco.util.siteDefaultPageLink = function(siteId, siteTitle, linkAttr, disableLink)
+{
+   return Alfresco.util.sitePageLink(siteId, siteTitle, "", linkAttr, disableLink);
+};
+
+/**
  * Generates a link to a site dashboard page
  *
  * @method Alfresco.util.siteDashboardLink
@@ -6221,28 +6278,7 @@ Alfresco.util.navigateTo = function(uri, method, parameters)
  */
 Alfresco.util.siteDashboardLink = function(siteId, siteTitle, linkAttr, disableLink)
 {
-   if (!YAHOO.lang.isString(siteId) || siteId.length === 0)
-   {
-      return "";
-   }
-
-   var html = Alfresco.util.encodeHTML(YAHOO.lang.isString(siteTitle) && siteTitle.length > 0 ? siteTitle : siteId),
-         template = Alfresco.constants.URI_TEMPLATES["sitedashboardpage"],
-         uri = "";
-
-   // If the "sitedashboardpage" template doesn't exist or is empty, or we're in portlet mode we'll just return the site's title || id
-   if (disableLink || YAHOO.lang.isUndefined(template) || template.length === 0 || Alfresco.constants.PORTLET)
-   {
-      return '<span>' + html + '</span>';
-   }
-
-   // Generate the link
-   uri = Alfresco.util.uriTemplate("sitedashboardpage",
-         {
-            site: siteId
-         });
-
-   return '<a href="' + uri + '" ' + (linkAttr || "") + '>' + html + '</a>';
+   return Alfresco.util.sitePageLink(siteId, siteTitle, "dashboard", linkAttr, disableLink);
 };
 
 /**
@@ -8291,11 +8327,20 @@ Alfresco.util.Ajax = function()
          var config = serverResponse.argument.config;
 
          // Our session has likely timed-out, so refresh to offer the login page
-         var contentType = serverResponse.getResponseHeader["Content-Type"] ||
-               serverResponse.getResponseHeader["content-type"] ||
-               config.responseContentType;
+         var contentType;
 
-         if ((serverResponse.status == 401 || (serverResponse.status == 302 && (/(text\/html)/).test(contentType)))
+         if (serverResponse.getResponseHeader)
+         {
+             contentType = serverResponse.getResponseHeader["Content-Type"] || serverResponse.getResponseHeader["content-type"];
+         }
+
+         if (!contentType)
+         {
+             contentType = config.responseContentType;
+         }
+
+         if (contentType && serverResponse.getResponseHeader
+               && (serverResponse.status == 401 || (serverResponse.status == 302 && (/(text\/html)/).test(contentType)))
                && !config.noReloadOnAuthFailure)
          {
             var redirect = serverResponse.getResponseHeader["Location"];
@@ -8326,7 +8371,7 @@ Alfresco.util.Ajax = function()
                }
 
                // User provided a custom failureHandler
-               if (config.responseContentType === "application/json")
+               if (serverResponse.responseText && config.responseContentType && (config.responseContentType === "application/json"))
                {
                   json = Alfresco.util.parseJSON(serverResponse.responseText, displayBadJsonResult);
                }
@@ -8356,7 +8401,7 @@ Alfresco.util.Ajax = function()
              * User did not provide any failure info at all, display as good
              * info as possible from the server response.
              */
-            if (config.responseContentType == "application/json")
+            if (serverResponse.responseText && config.responseContentType && (config.responseContentType === "application/json"))
             {
                json = Alfresco.util.parseJSON(serverResponse.responseText);
                if (json != null)
@@ -11248,7 +11293,8 @@ Alfresco.util.RENDERLOOPSIZE = 25;
                       * Since everything after the "#" isn't included in the value of document.referrer we must use
                       * history.go(-1) so the page can restore to its previous ajax state.
                       */
-                     history.go(-1);
+                     var back = (document.location.href.indexOf('#') === -1) ? -1 : -2;
+                     history.go(back);
                   }
                   else if (history.state && history.state.previous_url && this.isCromeRedirectToTheSamePage(document.referrer))
                   {
@@ -12190,13 +12236,43 @@ Alfresco.util.matchAspect = function(node, filter)
 };
 
 /**
+ * Type filter implementation. Returns true if the node type is in enumerated in {filter.match}. 
+ * For filters examples see ["CommonComponentStyle"]["component-style"] or ["SuppressComponent"]["component-config"] configurations from share-document-library-config.xml.
+ * 
+ * @param node {object}
+ * @param filter {object}
+ * @returns {Boolean} - true if the node type is in enumerated in filter.match, false otherwise.
+ */
+Alfresco.util.matchType = function(node, filter)
+{
+   var match = true;
+   if (filter.match && filter.match.length != null)
+   {
+      for (var j = 0; j < filter.match.length; j++)
+      {
+         var type = filter.match[j];
+         if (!node.type || node.type !== type)
+         {
+            match = false;
+            break;
+         }
+      }
+   }
+   else
+   {
+      match = false;
+   }
+   return match;
+};
+
+/**
  * Returns true if filterType is accepted, false otherwise. Currently only aspect filters accepted. 
  * @param filterType
  * @returns {Boolean} - true if filterType is accepted, false otherwise.
  */
 Alfresco.util.accepted = function(filterType)
 {
-   return (filterType == "aspect");
+   return (filterType == "aspect" || filterType == "type");
 };
 
 /**
@@ -12211,6 +12287,10 @@ Alfresco.util.match = function(node, filter)
    if (filter.name == "aspect")
    {
       return Alfresco.util.matchAspect(node, filter);
+   }
+   if (filter.name == "type")
+   {
+      return Alfresco.util.matchType(node, filter);
    }
    return false;
 };

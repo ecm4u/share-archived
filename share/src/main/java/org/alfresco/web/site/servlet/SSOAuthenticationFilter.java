@@ -48,9 +48,7 @@ import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 import javax.security.sasl.RealmCallback;
-import javax.servlet.Filter;
 import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
@@ -78,6 +76,7 @@ import org.alfresco.web.site.servlet.config.KerberosConfigElement;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.extensions.config.ConfigService;
 import org.springframework.extensions.config.RemoteConfigElement;
 import org.springframework.extensions.config.RemoteConfigElement.EndpointDescriptor;
@@ -86,6 +85,7 @@ import org.springframework.extensions.surf.RequestContextUtil;
 import org.springframework.extensions.surf.UserFactory;
 import org.springframework.extensions.surf.exception.ConnectorServiceException;
 import org.springframework.extensions.surf.exception.PlatformRuntimeException;
+import org.springframework.extensions.surf.mvc.PageViewResolver;
 import org.springframework.extensions.surf.site.AuthenticationUtil;
 import org.springframework.extensions.surf.types.Page;
 import org.springframework.extensions.surf.util.Base64;
@@ -95,7 +95,8 @@ import org.springframework.extensions.webscripts.connector.Connector;
 import org.springframework.extensions.webscripts.connector.ConnectorContext;
 import org.springframework.extensions.webscripts.connector.ConnectorService;
 import org.springframework.extensions.webscripts.connector.Response;
-import org.springframework.web.context.support.WebApplicationContextUtils;
+import org.springframework.extensions.webscripts.servlet.DependencyInjectedFilter;
+import org.springframework.web.util.WebUtils;
 
 /**
  * SSO Authentication Filter Class for web-tier, supporting NTLM and Kerberos challenges from the repository tier.
@@ -106,7 +107,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  * @author Sylvain Chambon
  * @author dward
  */
-public class SSOAuthenticationFilter implements Filter, CallbackHandler
+public class SSOAuthenticationFilter implements DependencyInjectedFilter, CallbackHandler, ApplicationContextAware
 {
     private static Log logger = LogFactory.getLog(SSOAuthenticationFilter.class);
     
@@ -124,17 +125,17 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
     private static final String AUTH_BY_KERBEROS = "_alfAuthByKerberos";
     
     private static final String MIME_HTML_TEXT = "text/html";
-
+    
     private static final String PAGE_SERVLET_PATH = "/page";
     private static final String LOGIN_PATH_INFORMATION = "/dologin";
     private static final String LOGIN_PARAMETER = "login";
     private static final String ERROR_PARAMETER = "error";
-    private static final String IGNORE_LINK = "/accept-invite";
     private static final String UNAUTHENTICATED_ACCESS_PROXY = "/proxy/alfresco-noauth";
+    private static final String PAGE_VIEW_RESOLVER = "pageViewResolver";
     
+    private ApplicationContext context;
     private ConnectorService connectorService;
     private String endpoint;
-    private ServletContext servletContext;
     private String userHeader;
     private Pattern userIdPattern;
     private SlingshotLoginController loginController;
@@ -175,16 +176,11 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
     /**
      * Initialize the filter
      */
-    public void init(FilterConfig args) throws ServletException
+    public void init()
     {
         if (logger.isDebugEnabled())
             logger.debug("Initializing the SSOAuthenticationFilter.");
         
-        // get reference to our ServletContext
-        this.servletContext = args.getServletContext();
-        
-        ApplicationContext context = getApplicationContext();
-
         this.loginController = (SlingshotLoginController)context.getBean("loginController");
         
         // retrieve the connector service
@@ -201,10 +197,9 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
         }
         
         // get the endpoint id to use
-        String endpoint = args.getInitParameter("endpoint");
-        if (endpoint == null)
+        if (this.endpoint == null)
         {
-            logger.error("There is no 'endpoint' id in the SSOAuthenticationFilter init parameters. Cannot initialise filter.");
+            logger.error("There is no 'endpoint' property in the SSOAuthenticationFilter bean parameters. Cannot initialise filter.");
             return;
         }
         
@@ -214,6 +209,10 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
         {
             if (logger.isDebugEnabled())
                 logger.debug("No External Auth endpoint configured for " + endpoint);
+            
+            // endpoint is set via bean config - so if no config is using the filter we disable it now
+            this.endpoint = null;
+            
             return;
         }
         
@@ -221,8 +220,6 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
         {
             Connector conn = this.connectorService.getConnector(endpoint);
             
-            // Save the endpoint, activating the filter
-            this.endpoint = endpoint;
             if (logger.isDebugEnabled())
                 logger.debug("Endpoint is " + endpoint);
             
@@ -262,7 +259,7 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
                 this.krbRealm = krbRealm;
             }
             else
-                throw new ServletException("Kerberos realm not specified");
+                throw new AlfrescoRuntimeException("Kerberos realm not specified");
             
             // Get the HTTP service account password
             
@@ -274,7 +271,7 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
                 this.krbPassword = srvPassword;
             }
             else
-                throw new ServletException("HTTP service account password not specified");
+                throw new AlfrescoRuntimeException("HTTP service account password not specified");
             
     
             String krbEndpointSPN = krbConfig.getEndpointSPN();
@@ -286,7 +283,7 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
                 this.krbEndpointSPN = krbEndpointSPN;
             }
             else
-                throw new ServletException("endpoint service principal name not specified");
+                throw new AlfrescoRuntimeException("endpoint service principal name not specified");
             
             // Get the login configuration entry name
             
@@ -302,7 +299,7 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
                     jaasLoginEntryName = loginEntry;
                 }
                 else
-                    throw new ServletException("Invalid login entry specified");
+                    throw new AlfrescoRuntimeException("Invalid login entry specified");
             }
             
             // Get the login stripUserNameSuffix property
@@ -335,7 +332,7 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
                 if ( logger.isErrorEnabled())
                     logger.error("HTTP Kerberos web filter error", ex);
                 
-                throw new ServletException("Failed to login HTTP server service");
+                throw new AlfrescoRuntimeException("Failed to login HTTP server service");
             }
             
             // Get the HTTP service account name from the subject
@@ -355,6 +352,17 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
             logger.info("SSOAuthenticationFilter initialised.");
     }
     
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext)
+    {
+        this.context = applicationContext;
+    }
+ 
+    public void setEndpoint(String endpoint)
+    {
+       this.endpoint = endpoint;
+    }
+    
     /**
      * Wraps an {@link HttpServletRequest} if an HTTP header has been configured for
      * use by an external SSO system to provide the name of an authenticated user.
@@ -363,7 +371,7 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
      * @param sreq original {@code ServletRequest}
      * @return either the original {@code sreq} or a wrapped {@code HttpServletRequest}
      */
-    private ServletRequest wrapHeaderAuthenticatedRequest(ServletRequest sreq)
+    protected ServletRequest wrapHeaderAuthenticatedRequest(ServletRequest sreq)
     {
         if (userHeader != null && sreq instanceof HttpServletRequest)
         {
@@ -426,6 +434,15 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
         }
         return sreq;
     }
+    
+    @Override
+    public void doFilter(ServletContext context, ServletRequest request,
+            ServletResponse response, FilterChain chain) throws IOException,
+            ServletException 
+    {
+       doFilter(request, response, chain);
+    }
+
 
     /**
      * Run the filter
@@ -471,21 +488,12 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
             return;
         }
         
-        // external invitation link should not trigger any SSO
-        if (PAGE_SERVLET_PATH.equals(req.getServletPath()) && IGNORE_LINK.equals(req.getPathInfo()))
-        {
-            if (debug)
-                logger.debug("SSO is by-passed for external invitation link.");
-            chain.doFilter(sreq, sresp);
-            return;
-        }
-        
         if (debug) logger.debug("Processing request " + req.getRequestURI() + " SID:" + session.getId());
         
         // Login page or login submission
-        String pathInfo;
+        String pathInfo = req.getPathInfo();
         if (PAGE_SERVLET_PATH.equals(req.getServletPath())
-                && (LOGIN_PATH_INFORMATION.equals(pathInfo = req.getPathInfo()) || pathInfo == null
+                && (LOGIN_PATH_INFORMATION.equals(pathInfo) || pathInfo == null
                         && LOGIN_PARAMETER.equals(req.getParameter("pt"))))
         {
             if (debug)
@@ -501,7 +509,7 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
         try
         {
             // perform a "silent" init - i.e. no user creation or remote connections
-            context = RequestContextUtil.initRequestContext(getApplicationContext(), req, true);
+            context = RequestContextUtil.initRequestContext(this.context, req, true);
         }
         catch (Exception ex)
         {
@@ -511,22 +519,32 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
 
         // get the page from the model if any - it may not require authentication
         Page page = context.getPage();
+        if (page == null && pathInfo != null)
+        {
+            // we didn't find a page - this may be a top-level URL call - so attempt to manually resolve the page
+            PageViewResolver pageViewResolver = (PageViewResolver)this.context.getBean(PAGE_VIEW_RESOLVER);
+            if (pageViewResolver != null)
+            {
+                try
+                {
+                    // as a side-effect of resolving the view ID into an View object
+                    // the Page context will be updated on the request context for us
+                    if (pageViewResolver.resolveViewName(pathInfo, null) != null)
+                    {
+                        page = context.getPage();
+                    }
+                }
+                catch (Exception e)
+                {
+                    // OK to fall back to null page reference if this happens
+                }
+            }
+        }
         if (page != null && page.getAuthentication() == RequiredAuthentication.none)
         {
             if (logger.isDebugEnabled())
                 logger.debug("Unauthenticated page requested - skipping auth filter...");
             chain.doFilter(sreq, sresp);
-            return;
-        }
-        
-        // Check if the browser is Opera, if so then display the login page as Opera does not
-        // support NTLM and displays an error page if a request to use NTLM is sent to it
-        String userAgent = req.getHeader("user-agent");
-        if (userAgent != null && userAgent.indexOf("Opera ") != -1)
-        {
-            if (debug) logger.debug("Opera detected, redirecting to login page");
-
-            redirectToLoginPage(req, res);
             return;
         }
         
@@ -688,24 +706,27 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
             final byte[] authHdrByts = authHdr.substring(5).getBytes();
             final byte[] ntlmByts = Base64.decode(authHdrByts);
             int ntlmTyp = NTLMMessage.isNTLMType(ntlmByts);
+            Object sessionMutex = WebUtils.getSessionMutex(session);
             
             if (ntlmTyp == NTLM.Type1)
             {
                 if (debug)
                     logger.debug("Process the type 1 NTLM message.");
                 Type1NTLMMessage type1Msg = new Type1NTLMMessage(ntlmByts);
-                
-                // Start with a fresh session
-                clearSession(session);
-                session = req.getSession();
-                processType1(type1Msg, req, res, session);
+                synchronized (sessionMutex)
+                {
+                    processType1(type1Msg, req, res, session);
+                }
             }
             else if (ntlmTyp == NTLM.Type3)
             {
                 if (debug)
                     logger.debug("Process the type 3 NTLM message.");
                 Type3NTLMMessage type3Msg = new Type3NTLMMessage(ntlmByts);
-                processType3(type3Msg, req, res, session, chain);
+                synchronized (sessionMutex)
+                {
+                    processType3(type3Msg, req, res, session, chain);
+                }
             }
             else
             {
@@ -814,7 +835,7 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
                 // If we are as yet unauthenticated but have external authentication, do a ping check as the external user.
                 // This will either establish the session or throw us out to log in as someone else!
                 userId = req.getRemoteUser();
-             // Set the external auth flag so the UI knows we are using SSO etc.
+                // Set the external auth flag so the UI knows we are using SSO etc.
                 session.setAttribute(UserFactory.SESSION_ATTRIBUTE_EXTERNAL_AUTH, Boolean.TRUE);
                 if (userId != null && logger.isDebugEnabled())
                     logger.debug("Initial login from externally authenticated user " + userId);
@@ -867,7 +888,14 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
                     // having to reauthenticate externally too!
                     if (req.getRemoteUser() == null)
                     {
-                        session.invalidate();
+                        try
+                        {
+                            session.invalidate();
+                        }
+                        catch (IllegalStateException e)
+                        {
+                            // may already been invalidated elsewhere
+                        }
                     }
                     // restart manual login
                     redirectToLoginPage(req, res);
@@ -976,7 +1004,7 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
         NTLMLogonDetails ntlmDetails = (NTLMLogonDetails)session.getAttribute(NTLM_AUTH_DETAILS);
         
         // Check if cached logon details are available
-        if (ntlmDetails != null && ntlmDetails.hasType2Message() && ntlmDetails.hasNTLMHashedPassword())
+        if (ntlmDetails != null && ntlmDetails.hasType2Message())
         {
             // Get the authentication server type2 response
             Type2NTLMMessage cachedType2 = ntlmDetails.getType2Message();
@@ -1217,20 +1245,21 @@ public class SSOAuthenticationFilter implements Filter, CallbackHandler
     {
         if (logger.isDebugEnabled())
             logger.debug("Redirecting to the login page.");
-        setRedirectUrl(req);
         
-        String error = req.getParameter(ERROR_PARAMETER);
-        res.sendRedirect(req.getContextPath() + "/page?pt=login" + (error == null ? "" : "&" + ERROR_PARAMETER + "=" + error));
-    }
-    
-    /**
-     * Retrieves the root application context
-     * 
-     * @return application context
-     */
-    private ApplicationContext getApplicationContext()
-    {
-    	return WebApplicationContextUtils.getRequiredWebApplicationContext(servletContext);
+        if (PAGE_SERVLET_PATH.equals(req.getServletPath()))
+        {
+            // redirect via full page redirect
+            setRedirectUrl(req);
+            
+            String error = req.getParameter(ERROR_PARAMETER);
+            res.sendRedirect(req.getContextPath() + "/page?pt=login" + (error == null ? "" : "&" + ERROR_PARAMETER + "=" + error));
+        }
+        else
+        {
+            // redirect via 401 response code handled by XHR processing on the client
+            res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            res.flushBuffer();
+        }
     }
     
     /**

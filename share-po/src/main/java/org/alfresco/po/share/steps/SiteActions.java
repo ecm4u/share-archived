@@ -39,14 +39,24 @@ import org.alfresco.po.HtmlPage;
 import org.alfresco.po.exception.PageException;
 import org.alfresco.po.exception.PageOperationException;
 import org.alfresco.po.share.DashBoardPage;
-import org.alfresco.po.share.FactoryPage;
+import org.alfresco.po.share.ShareLink;
 import org.alfresco.po.share.SharePage;
 import org.alfresco.po.share.SharePopup;
+import org.alfresco.po.share.dashlet.SiteActivitiesDashlet;
+import org.alfresco.po.share.dashlet.SiteContentDashlet;
+import org.alfresco.po.share.dashlet.MyActivitiesDashlet.LinkType;
+import org.alfresco.po.share.enums.Dashlets;
+import org.alfresco.po.share.enums.UserRole;
 import org.alfresco.po.share.exception.ShareException;
 import org.alfresco.po.share.exception.UnexpectedSharePageException;
+import org.alfresco.po.share.site.AddGroupsPage;
+import org.alfresco.po.share.site.AddUsersToSitePage;
+import org.alfresco.po.share.site.ConfirmRequestToJoinPopUp;
 import org.alfresco.po.share.site.CreateSitePage;
 import org.alfresco.po.share.site.NewFolderPage;
 import org.alfresco.po.share.site.SiteDashboardPage;
+import org.alfresco.po.share.site.SiteGroupsPage;
+import org.alfresco.po.share.site.SiteMembersPage;
 import org.alfresco.po.share.site.SitePage;
 import org.alfresco.po.share.site.UpdateFilePage;
 import org.alfresco.po.share.site.UploadFilePage;
@@ -57,6 +67,7 @@ import org.alfresco.po.share.site.document.ContentDetails;
 import org.alfresco.po.share.site.document.ContentType;
 import org.alfresco.po.share.site.document.CopyOrMoveContentPage;
 import org.alfresco.po.share.site.document.CopyOrMoveContentPage.ACTION;
+import org.alfresco.po.share.site.document.CopyOrMoveContentPage.DESTINATION;
 import org.alfresco.po.share.site.document.CreatePlainTextContentPage;
 import org.alfresco.po.share.site.document.DetailsPage;
 import org.alfresco.po.share.site.document.DocumentDetailsPage;
@@ -64,18 +75,22 @@ import org.alfresco.po.share.site.document.DocumentLibraryPage;
 import org.alfresco.po.share.site.document.EditDocumentPropertiesPage;
 import org.alfresco.po.share.site.document.FileDirectoryInfo;
 import org.alfresco.po.share.site.document.SelectAspectsPage;
+import org.alfresco.po.share.site.document.ShareLinkPage;
 import org.alfresco.po.share.util.PageUtils;
+import org.alfresco.po.share.enums.ActivityType;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.WebDriver;
 import org.springframework.stereotype.Component;
 
+
 /**
  * Share actions - All the common steps of site action
  * 
  * @author sprasanna
  * @author mbhave
+ * @author charu
  */
 @Component
 public class SiteActions extends CommonActions
@@ -88,7 +103,6 @@ public class SiteActions extends CommonActions
     public final static String DOCLIB = "DocumentLibrary";
     protected static final String UNIQUE_TESTDATA_STRING = "sync";
     private static final String SITE_DASH_LOCATION_SUFFIX = "/page/site/";
-
     /**
      * Create site
      */
@@ -124,7 +138,7 @@ public class SiteActions extends CommonActions
                 site = createSite.createNewSite(siteName, desc).render();
             }
 
-            site.render();
+            site = site.render();
 
             if (siteName.equalsIgnoreCase(site.getPageTitle()))
             {
@@ -452,10 +466,11 @@ public class SiteActions extends CommonActions
         HtmlPage page = getSharePage(driver).render();
         if (page instanceof DocumentLibraryPage)
         {
-            if (((DocumentLibraryPage) page).isSite(siteName) && ((DocumentLibraryPage) page).isDocumentLibrary())
+        	DocumentLibraryPage doclibPage = page.render();
+            if (doclibPage.isSite(siteName) && doclibPage.isDocumentLibrary())
             {
                 logger.info("Site doc lib page open ");
-                return ((DocumentLibraryPage) page);
+                return doclibPage;
             }
         }
 
@@ -680,28 +695,31 @@ public class SiteActions extends CommonActions
     /**
      * Navigate to Document library
      */
-    public void navigateToDocuemntLibrary(WebDriver driver, String siteName)
+    public HtmlPage navigateToDocumentLibrary(WebDriver driver, String siteName)
     {
-        openSiteURL(driver, siteName);
-        openDocumentLibrary(driver);
-
+        openSiteURL(driver, siteName); 
+        return openDocumentLibrary(driver).render();
     }
-
+    
     /**
      * Copy or Move to File or folder from document library.
      * 
-     * @param driver
-     * @param destination
-     * @param siteName
-     * @param fileName
-     * @return
+     * @param driver WebDriver
+     * @param destination String (options: Recent Sites, Favorite Sites, All Sites, Repository, Shared Files, My File)
+     * @param siteName String - the siteName that exists in <destination>
+     * @param siteDescription String - the siteDescription - IF THIS VALUE IS SET, THEN WE WILL SELECT THE SITE BY DESCRIPTION NOT BY <siteName>
+     * @param fileName String
+     * @return HtmlPage
+     * @author pbrodner
      */
-    public HtmlPage copyOrMoveArtifact(WebDriver driver, String destination, String siteName,  String fileName, String type, String... moveFolderName)
+    public HtmlPage copyOrMoveArtifact(WebDriver driver, DESTINATION destination, String siteName, String siteDescription, String fileName, CopyOrMoveContentPage.ACTION action, String... moveFolderName)
     {
-        DocumentLibraryPage docPage =factoryPage.getPage(driver).render();
+        DocumentLibraryPage docPage = getSharePage(driver).render();
+        
         CopyOrMoveContentPage copyOrMoveToPage;
 
-        if (type.equals("Copy"))
+        // Select Copy or Move To Action
+        if (action == ACTION.COPY || action == ACTION.CREATE_LINK) 
         {
             copyOrMoveToPage = docPage.getFileDirectoryInfo(fileName).selectCopyTo().render();
         }
@@ -710,68 +728,42 @@ public class SiteActions extends CommonActions
             copyOrMoveToPage = docPage.getFileDirectoryInfo(fileName).selectMoveTo().render();
         }
 
-        copyOrMoveToPage.selectDestination(destination);
-        if(destination.contains("Sites"))
-        {
-        copyOrMoveToPage.selectSite(siteName).render();
-        }
-        if (moveFolderName != null)
-        {
-        	try
-        	{
-        		copyOrMoveToPage.selectPath(moveFolderName).render();
-        	}
-        	catch(Exception e)
-        	{
-        		//retry one last time.
-        		copyOrMoveToPage.selectPath(moveFolderName).render();
-        	}
-        }
-        copyOrMoveToPage.selectOkButton().render();
-        return getSharePage(driver);
-    }
-    
-    /**
-     * Copy or Move to File or folder from document library.
-     * 
-     * @param drone WebDriver
-     * @param destination String (options: Recent Sites, Favorite Sites, All Sites, Repository, Shared Files, My File)
-     * @param siteName String - the siteName that exists in <destination>
-     * @param siteDescription String - the siteDescription - IF THIS VALUE IS SET, THEN WE WILL SELECT THE SITE BY DESCRIPTION NOT BY <siteName>
-     * @param fileName String
-     * @return HtmlPage
-     * @author pbrodner
-     */
-    public HtmlPage copyOrMoveArtifact(WebDriver driver, FactoryPage factory, CopyOrMoveContentPage.DESTINATION destination, String siteName, String siteDescription, String fileName, CopyOrMoveContentPage.ACTION action, String... moveFolderName)
-    {
-        DocumentLibraryPage docPage = factory.getPage(driver).render();
-        CopyOrMoveContentPage copyOrMoveToPage;
-
-        if (action==ACTION.COPY) {
-            copyOrMoveToPage = docPage.getFileDirectoryInfo(fileName).selectCopyTo().render();
-        }
-        else {
-            copyOrMoveToPage = docPage.getFileDirectoryInfo(fileName).selectMoveTo().render();
-        }
-
-        //if our <destination> is already selected - continue
+        // Select <destination> if not already selected
         String active = copyOrMoveToPage.getSelectedDestination();
-        if(!active.equals(destination.getValue())) {
-       	 copyOrMoveToPage.selectDestination(destination.getValue());	 
+        if(!active.equals(destination.getValue())) 
+        {
+            copyOrMoveToPage.selectDestination(destination.getValue());	 
         }
-
-        if(destination.hasSites()) {
-    	  if (siteDescription!=null && !siteDescription.isEmpty()){
-    		  copyOrMoveToPage.selectSiteByDescription(siteName, siteDescription).render();
-    	  }
-    	  else{
-    		  copyOrMoveToPage.selectSite(siteName).render();
-    	  }        	
+        
+        // Select Site
+        if(destination.hasSites())
+        {
+            if (siteDescription!=null && !siteDescription.isEmpty())
+            {
+                copyOrMoveToPage.selectSiteByDescription(siteName, siteDescription).render();
+    	    } 
+    	    else
+            {
+                copyOrMoveToPage.selectSite(siteName).render();
+    	    }        	
         }
-        if (moveFolderName != null && moveFolderName.length > 0){
+        
+        // Select Destination Path
+        if (moveFolderName != null && moveFolderName.length > 0)
+        {
             copyOrMoveToPage.selectPath(moveFolderName).render();
         }
-        copyOrMoveToPage.selectOkButton().render();
+        
+        // Select Create Link or Default Option
+        if (action == ACTION.CREATE_LINK)
+        {
+            copyOrMoveToPage.selectCreateLinkButton().render();
+        }
+        else
+        {
+            copyOrMoveToPage.selectOkButton().render();
+        }
+        
         return getSharePage(driver);
     }
 
@@ -846,7 +838,7 @@ public class SiteActions extends CommonActions
      */
     public HtmlPage getEditPropertiesPage(WebDriver driver, String contentName)
     {
-        PageUtils.checkMandotaryParam("Expected ContentName", contentName);
+        PageUtils.checkMandatoryParam("Expected ContentName", contentName);
 
         try
         {
@@ -1012,7 +1004,7 @@ public class SiteActions extends CommonActions
      */
     public HtmlPage editNodeProperties(WebDriver driver, boolean saveProperties, Map<String, Object> properties)
     {
-        PageUtils.checkMandotaryParam("Expected Properties Map", properties);
+        PageUtils.checkMandatoryParam("Expected Properties Map", properties);
 
         try
         {
@@ -1047,6 +1039,43 @@ public class SiteActions extends CommonActions
             throw new UnexpectedSharePageException("Expected EditDocumentPropertiesPage Page", ce);
         }
     }
+    
+    /**
+     * Util to Save the Node Properties from Details Page but error could be expected during save.
+     * 
+     * @param driver
+     * @param properties Map<String, Object>
+     * @return HtmlPage
+     */
+    public HtmlPage editNodePropertiesExpectError(WebDriver driver, Map<String, Object> properties)
+    {
+        PageUtils.checkMandatoryParam("Expected Properties Map", properties);
+        try
+        {
+            EditDocumentPropertiesPage editPropPage = null;
+            
+            SharePage sharePage = getSharePage(driver).render();
+            if (sharePage instanceof SharePopup)
+            {
+                editPropPage = acknowledgeShareError(driver).render();
+            }
+            else
+            {
+                editPropPage = sharePage.render();
+            }
+
+            // Edit Properties
+            editPropPage.setProperties(properties);
+
+            // Save
+            return editPropPage.selectSaveExpectError();
+        }
+        catch (ClassCastException ce)
+        {
+            throw new UnexpectedSharePageException("Expected EditDocumentPropertiesPage Page", ce);
+        }
+    }
+
 
     public HtmlPage viewDetails(WebDriver driver, String name)
     {
@@ -1075,5 +1104,222 @@ public class SiteActions extends CommonActions
             return ((SharePopup) sharePage).clickOK();
         }
         return sharePage;
+    }
+    
+    /**
+     * Helper to search for an Activity Entry on the Site Dashboard Page, with configurable retry search option.
+     * 
+     * @param driver <WebDriver> instance
+     * @param dashlet <String> Name of the Dashlet such as: activities,content,myDocuments etc
+     * @param entry <String> Entry to look for within the Dashlet
+     * @param entryPresent <String> Parameter to indicate should the entry be visible within the dashlet
+     * @param siteName <String> Parameter to indicate the site name to open the site dashboard.
+     * @param activityType <Enum> paramerter to indicate the activity type.
+     * @return <Boolean>
+     */
+    public Boolean searchSiteDashBoardWithRetry(WebDriver driver, Dashlets dashlet, String entry, Boolean entryPresent, String siteName, ActivityType activityType)
+    {
+        Boolean found = false;
+        Boolean resultAsExpected = false;
+
+        List<ShareLink> shareLinkEntries = null;
+
+        // Open Site DashBoard: Assumes User is logged in
+        SiteDashboardPage siteDashBoard = openSiteDashboard(driver, siteName);
+
+        // Repeat search until the element is found or Timeout is hit
+        for (int searchCount = 1; searchCount <= retrySearchCount; searchCount++)
+        {
+            if (searchCount > 1)
+            {
+                // This below code is needed to wait for the solr indexing.
+                webDriverWait(driver, refreshDuration);
+
+                siteDashBoard = refreshSiteDashboard(driver);
+            }
+
+            if (dashlet.equals(Dashlets.SITE_ACTIVITIES) && ActivityType.DESCRIPTION.equals(activityType))
+            {
+                SiteActivitiesDashlet siteActivitiesDashlet = siteDashBoard.getDashlet(Dashlets.SITE_ACTIVITIES.getDashletName()).render();
+                found = siteActivitiesDashlet.getSiteActivityDescriptions().contains(entry);
+            }
+            else
+            {
+                shareLinkEntries = getSiteDashletEntries(driver, dashlet, activityType);
+
+                if (shareLinkEntries != null)
+                {
+                    found = findInList(shareLinkEntries, entry);
+                }
+            }
+
+            // Loop again if result is not as expected: To cater for solr lag: eventual consistency
+            resultAsExpected = (entryPresent.equals(found));
+            if (resultAsExpected)
+            {
+                break;
+            }
+        }
+
+        return resultAsExpected;
+    }
+    
+    /**
+     * Helper to search for an Element in the list of <ShareLinks>.
+     * 
+     * @param driver WebDriver Instance
+     * @param dashlet String Name of the dashlet
+     * @return List<ShareLink>: List of Share Links available in the dashlet
+     */
+    protected List<ShareLink> getSiteDashletEntries(WebDriver driver, Dashlets dashlet, ActivityType activityType)
+    {
+        List<ShareLink> entries = null;
+
+        SiteDashboardPage siteDashBoard = getSharePage(driver).render();
+        if (dashlet == null)
+        {
+            dashlet = Dashlets.SITE_CONTENT;
+        }
+
+        if (dashlet.equals(Dashlets.SITE_CONTENT))
+        {
+            SiteContentDashlet siteContentDashlet = siteDashBoard.getDashlet(dashlet.getDashletName()).render();
+            entries = siteContentDashlet.getSiteContents();
+        }
+        else if (dashlet.equals(Dashlets.SITE_ACTIVITIES))
+        {
+            SiteActivitiesDashlet siteActivitiesDashlet = null;
+            if (ActivityType.USER.equals(activityType))
+            {
+                siteActivitiesDashlet = siteDashBoard.getDashlet(dashlet.getDashletName()).render();
+                entries = siteActivitiesDashlet.getSiteActivities(LinkType.User);
+            }
+            else if (ActivityType.DOCUMENT.equals(activityType))
+            {
+                siteActivitiesDashlet = siteDashBoard.getDashlet(dashlet.getDashletName()).render();
+                entries = siteActivitiesDashlet.getSiteActivities(LinkType.Document);
+            }           
+        }
+
+        return entries;
+    }
+    
+    /**
+     * Navigate to User DashBoard page and waits for the page render to
+     * complete. Assumes User is logged in
+     * 
+     * @param driver WebDriver Instance
+     * @return DashBoardPage
+     */
+    public SiteDashboardPage refreshSiteDashboard(WebDriver driver)
+    {
+        // Open DocumentLibrary Page from Site Page
+        SitePage site = getSharePage(driver).render();
+
+        logger.info("Opening Site Dashboard");
+        return site.getSiteNav().selectSiteDashBoard().render();
+    }
+    
+    /**
+     * Utility to click on the share link for the specified content in the Site Doclib
+     * @param WebDriver driver
+     * @param String filename
+     * @return {@link ShareLinkPage}
+     */
+    public HtmlPage shareFile(WebDriver driver, String filename)
+    {
+        FileDirectoryInfo thisRow = getFileDirectoryInfo(driver, filename);
+        return thisRow.clickShareLink().render();
+    }
+    
+    /**
+     * Utility to navigate to specified link
+     * @param {@link WebDriver} driver
+     * @param {String} link
+     * @return HtmlPage
+     */
+    public HtmlPage viewSharedLink(WebDriver driver, String link)
+    {
+        driver.navigate().to(link);
+
+        return factoryPage.getPage(driver).render();
+
+    }
+    
+    /**
+     * Utility for requesting to join moderated site when user already logged in
+     * @param  siteName 
+     */
+    public  HtmlPage requestToJoinModSite(WebDriver driver, String modSiteName)
+    {
+    	SiteDashboardPage siteDashboardPage = openSiteDashboard(driver, modSiteName).render(); 
+    	SharePage sharePage = siteDashboardPage.requestToJoinSite().render();        
+    	if (sharePage instanceof ConfirmRequestToJoinPopUp) 
+    	{
+    		 return ((ConfirmRequestToJoinPopUp) sharePage).selectOk();	
+    	}
+        return factoryPage.getPage(driver).render();
+    }
+    
+    /**
+     * Utility for cancel requesting to join a site when user already logged in
+     * @param  siteName 
+     */
+    public  HtmlPage cancelRequestToJoinSite(WebDriver driver, String siteName)
+    {
+    	SiteDashboardPage siteDashboardPage = openSiteDashboard(driver, siteName).render(); 
+    	siteDashboardPage.cancelRequestToJoinSite().render();
+        return factoryPage.getPage(driver).render();
+    }  
+        
+    /**
+     * Utility for navigating to PendingRequset Page when user already logged in
+     * @param  siteName     
+     */
+    public HtmlPage navigateToPendingRequestPage(WebDriver driver, String modSiteName)
+    {
+    	SiteDashboardPage siteDashboardPage = openSiteDashboard(driver, modSiteName).render();
+    	SiteMembersPage siteMembersPage = siteDashboardPage.getSiteNav().selectMembersPage().render();
+    	return siteMembersPage.navigateToPendingInvites().render();
+    	
+    } 
+    
+    /**
+     * Utility for verify user role is as specified
+     * @param {@link WebDriver} driver
+     * @param userName
+     * @param siteName
+     * @return {@link Boolean} expectedRole    
+     */
+    public Boolean checkUserRole(WebDriver driver, String userName, String siteName, UserRole userRole, Boolean expectedRole )
+    {
+       // Open site dashboard
+       SiteDashboardPage siteDashboardPage = openSiteDashboard(driver, siteName).render();
+
+       // Verify user is a member of site with specified role
+       SiteMembersPage siteMembersPage = siteDashboardPage.getSiteNav().selectMembersPage().render();
+       return siteMembersPage.checkUserRole(userName, userRole);
+    }
+    
+    /**
+     * Utility to add group to site with any role, when user is on site dashboard
+     * @param siteName
+     * @param groupName
+     * @param {@link WebDriver} driver
+     * @return {@link Boolean} expectedRole    
+     */
+    
+    public HtmlPage addGroupToSite(WebDriver driver, String siteName, String groupName, UserRole userRole)
+    {
+    	SiteDashboardPage siteDashboardPage = openSiteDashboard(driver, siteName).render();
+
+        // Navigate to Add Users page
+    	AddUsersToSitePage addUsersToSitePage = siteDashboardPage.getSiteNav().selectAddUser().render();
+    	SiteGroupsPage siteGroupsPage = addUsersToSitePage.navigateToSiteGroupsPage().render();
+
+        // Add groupName to site with any role
+    	AddGroupsPage addGroupsPage = siteGroupsPage.navigateToAddGroupsPage().render();
+        return addGroupsPage.addGroup(groupName, userRole).render();
+        
     }
 }

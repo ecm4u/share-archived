@@ -2390,7 +2390,8 @@ var DASHLET_TITLE_BAR_ACTIONS_OPACITY = 0,
       pageUsesAjaxState: function FormManager_pageUsesAjaxState(url)
       {
          return (url.match(/documentlibrary([?]|$)/) ||
-               url.match(/repository([?]|$)/));
+               url.match(/repository([?]|$)/) ||
+               url.match(/faceted-search([?]|$)/));
       },
 
       /**
@@ -2475,7 +2476,7 @@ Alfresco.Share.userAvatar = function(userName, size)
    var $html = Alfresco.util.encodeHTML,
       $links = Alfresco.util.activateLinks,
       $userProfile = Alfresco.util.userProfileLink,
-      $siteDashboard = Alfresco.util.siteDashboardLink,
+      $siteDefaultPage = Alfresco.util.siteDefaultPageLink,
       $relTime = Alfresco.util.relativeTime;
 
    /**
@@ -2896,7 +2897,7 @@ Alfresco.Share.userAvatar = function(userName, size)
             }
             if (locn.site)
             {
-               dateLine = this.msg("details." + dateI18N + "-in-site", $relTime(dateProperty), $siteDashboard(locn.site, locn.siteTitle, 'class="site-link theme-color-1" id="' + id + '"'));
+               dateLine = this.msg("details." + dateI18N + "-in-site", $relTime(dateProperty), $siteDefaultPage(locn.site, locn.siteTitle, 'class="site-link theme-color-1" id="' + id + '"'));
             }
             else
             {

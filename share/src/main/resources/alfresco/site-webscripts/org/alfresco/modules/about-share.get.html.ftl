@@ -28,6 +28,7 @@ Carina Lansing<br/>
 Peter Lofgren<br/>
 Sebastian Lorenz<br/>
 Marlin Manowski<br/>
+Richard McKnight<br/>
 Jesper Steen M&oslash;ller<br/>
 Peter Monks<br/>
 Paolo Nacci<br/>
@@ -35,6 +36,7 @@ Guillaume Nodet<br/>
 Ian Norton<br/>
 Jan Pfitzner<br/>
 Noel Sharpe<br/>
+Antonio Soler<br/>
 Alfresco Engineering
 <br/><br/>
 Atol Conseils et D&eacute;veloppements<br/>
@@ -47,7 +49,7 @@ Zaizi<br/>
                </div>
             </div>
             <div class="copy">
-               <span>&copy; 2005-2016 Alfresco Software Inc. All rights reserved.</span>
+               <span>${msg("label.copyright")}</span>
                <a href="http://www.alfresco.com" target="new">www.alfresco.com</a>
                <a href="http://www.alfresco.com/legal/agreements/" target="new">Legal and License</a>
             </div>

@@ -3,9 +3,9 @@
     <parent>
         <groupId>org.alfresco</groupId>
         <artifactId>alfresco-share-packaging</artifactId>
-        <version>5.1.g</version>
+        <version>5.2.f</version>
     </parent>
-    <artifactId>alfresco-share-distribution</artifactId>
+    <artifactId>alfresco-content-services-share-distribution</artifactId>
     <name>Distribution of Alfresco Share</name>
     <packaging>pom</packaging>
 

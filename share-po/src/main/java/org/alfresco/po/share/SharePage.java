@@ -25,6 +25,9 @@
  */
 package org.alfresco.po.share;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import java.io.File;
 import java.util.List;
 
@@ -59,6 +62,7 @@ public abstract class SharePage extends Page
 {
 
     private Log logger = LogFactory.getLog(this.getClass());
+    private static final By PAGE_TITLE_LINK = By.cssSelector("#HEADER_TITLE span a");
     protected static final By USER_LOGGED_IN_LABEL = By.cssSelector("#HEADER_USER_MENU_POPUP_text");
     protected static final By PROMPT_PANEL_ID = By.id("prompt");
     protected long popupRendertime;
@@ -128,7 +132,7 @@ public abstract class SharePage extends Page
         String pageTitleLabel = "";
         try
         {
-            waitForElement(PAGE_TITLE_LABEL, defaultWaitTime);
+            waitForElement(PAGE_TITLE_LABEL, SECONDS.convert(defaultWaitTime, MILLISECONDS));
             pageTitleLabel = findAndWait(PAGE_TITLE_LABEL).getText();
         } catch (TimeoutException toe)
         {
@@ -154,6 +158,16 @@ public abstract class SharePage extends Page
         {
         }
         return titleExists;
+    }
+    
+    /**
+     * Clicks on page title link
+     * @return
+     */
+    public HtmlPage clickOnPageTitle()
+    {
+        findAndWait(PAGE_TITLE_LINK).click();
+        return getCurrentPage();
     }
 
     /**
@@ -376,7 +390,7 @@ public abstract class SharePage extends Page
      */
     protected HtmlPage submit(By locator, ElementState elementState)
     {
-        WebElement button = driver.findElement(locator);
+        WebElement button = findFirstDisplayedElement(locator);
         String id = button.getAttribute("id");
         button.click();
         By locatorById = By.id(id);
@@ -408,6 +422,7 @@ public abstract class SharePage extends Page
                 }
                 catch (PageRenderTimeException| ClassCastException exception)
                 {
+                    logger.info("Error Submitting the page:", exception);
                     continue;
                 }
             }
@@ -417,7 +432,7 @@ public abstract class SharePage extends Page
             }
             break;
         }
-        return getCurrentPage();
+        return getCurrentPage().render();
     }
 
     /**
@@ -762,9 +777,32 @@ public abstract class SharePage extends Page
     {
         return findAndWait(FOOTER_LOGO).getAttribute("src");
     }
+    
     public WebElement findByKey(final String id)
     {
         By criteria = By.id(getValue(id));
         return driver.findElement(criteria);
+    }
+    
+    /**
+     * Common method to wait for the next solr indexing cycle.
+     * 
+     * @param driver WebDriver Instance
+     * @param waitMiliSec Wait duration in milliseconds
+     */
+    public HtmlPage webDriverWait(long waitMiliSec)
+    {
+        synchronized (this)
+        {
+            try
+            {
+                this.wait(waitMiliSec);
+            }
+            catch (InterruptedException e)
+            {
+                // Discussed not to throw any exception
+            }
+        }
+        return this;
     }
 }

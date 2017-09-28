@@ -479,6 +479,14 @@
             width: this.options.width
          });
 
+         // Link button
+         this.widgets.linkButton = Alfresco.util.createYUIButton(this, "link", this.onCreateLink, {additionalClass: "alf-primary-button"});
+         if (this.widgets.linkButton)
+         {
+            this.widgets.linkButton.set("label", this.msg("link.button"));
+            this.widgets.linkButton.set("style","display:none");
+         }
+
          // OK button
          this.widgets.okButton = Alfresco.util.createYUIButton(this, "ok", this.onOK, {additionalClass: "alf-primary-button"});
 
@@ -548,6 +556,10 @@
                            if (this.selectedNode == node)
                            {
                               this.widgets.okButton.set("disabled", true);
+                              if (this.widgets.linkButton)
+                              {
+                                 this.widgets.linkButton.set("disabled", true);
+                              }
                            }
                         }
                      }
@@ -710,6 +722,10 @@
          // Enable buttons
          this.widgets.okButton.set("disabled", false);
          this.widgets.cancelButton.set("disabled", false);
+         if (this.widgets.linkButton)
+         {
+            this.widgets.linkButton.set("disabled", false);
+         }
 
          // Dialog title
          var titleDiv = Dom.get(this.id + "-title");
@@ -957,6 +973,34 @@
        * @param p_obj {object} Object passed back from addListener method
        */
       onOK: function DLGF_onOK(e, p_obj)
+      {
+         // Close dialog and fire event so other components may use the selected folder
+         this.widgets.escapeListener.disable();
+         this.widgets.dialog.hide();
+
+         var selectedFolder = this.selectedNode ? this.selectedNode.data : null;
+         if (selectedFolder && this._isSiteViewMode(this.options.viewMode))
+         {
+            selectedFolder.siteId = this.options.siteId;
+            selectedFolder.siteTitle = this.options.siteTitle;
+            selectedFolder.containerId = this.options.containerId;
+         }
+
+         YAHOO.Bubbling.fire("folderSelected",
+         {
+            selectedFolder: selectedFolder,
+            eventGroup: this
+         });
+      },
+
+      /**
+       * Dialog Create Link button event handler
+       *
+       * @method onCreateLink
+       * @param e {object} DomEvent
+       * @param p_obj {object} Object passed back from addListener method
+       */
+      onCreateLink: function DLGF_onCreateLink(e, p_obj)
       {
          // Close dialog and fire event so other components may use the selected folder
          this.widgets.escapeListener.disable();
@@ -1435,10 +1479,18 @@
          if (node.data.userAccess && !node.data.userAccess.create)
          {
             this.widgets.okButton.set("disabled", true);
+            if (this.widgets.linkButton)
+            {
+               this.widgets.linkButton.set("disabled", true);
+            }
          }
          else
          {
             this.widgets.okButton.set("disabled", false);
+            if (this.widgets.linkButton)
+            {
+               this.widgets.linkButton.set("disabled", false);
+            }
          }
       },
 

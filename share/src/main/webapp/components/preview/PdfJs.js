@@ -41,8 +41,8 @@
    // IE does not support const
    var K_UNKNOWN_SCALE = 0;
    var K_CSS_UNITS = 96.0 / 72.0;
-   var K_MIN_SCALE = 0.25;
-   var K_MAX_SCALE = 4.0;
+   var K_MIN_SCALE = 0.05;
+   var K_MAX_SCALE = 5.0;
 
    /**
     * YUI aliases
@@ -450,7 +450,7 @@
 
          // Viewer HTML is contained in an external web script, which we load via XHR, then onViewerLoad() does the rest
          Alfresco.util.Ajax.request({
-            url: Alfresco.constants.URL_SERVICECONTEXT + 'components/preview/pdfjs?htmlid=' + encodeURIComponent(this.wp.id),
+            url: Alfresco.constants.URL_CONTEXT + 'noauth/components/preview/pdfjs?htmlid=' + encodeURIComponent(this.wp.id),
             successCallback : {
                fn : this.onViewerLoaded,
                scope : this
@@ -970,7 +970,9 @@
          Alfresco.util.PopupManager.displayMessage({
             text: loadingErrorMessage
          });
-         Alfresco.logger.error("Could not load PDF due to error " + exception.name + " (code " + exception.code + "): " + message);
+         if (exception && exception.name) {
+            Alfresco.logger.error("Could not load PDF due to error " + exception.name + " (code " + exception.code + "): " + message);
+         }
       },
 
       /**
@@ -1410,45 +1412,52 @@
        */
       onFullScreenChange: function PdfJs_onFullScreenChange(e_obj)
       {
-         if ((document.fullScreenElement && document.fullScreenElement !== null) ||    // alternative standard method
-             (!document.mozFullScreenElement && !document.webkitFullScreenElement && !document.webkitFullscreenElement)) // current working methods
+         if (e_obj.type && e_obj.type.indexOf("attrmodified-" === 0))
          {
-            Alfresco.logger.debug("Leaving full screen mode");
-            
-            this.fullscreen = false;
-            this.documentView.fullscreen = false;
-            this.documentView.setScale(this.oldScale);
-
-            this._setViewerHeight();
-            
-            this.onResize.fire();
-            
-            // Now redefine the row margins
-            this.documentView.alignRows();
-            this._scrollToPage(this.pageNum);
-            
-            // Re-add window resize behaviour
-            Event.addListener(window, "resize", this.onRecalculatePreviewLayout, this, true);
+            // See MNT-16920 - this prevents touch events from causing strange PDF.js behaviour.
          }
          else
          {
-            Alfresco.logger.debug("Entering full screen mode");
-            
-            this.documentView.fullscreen = true;
-            this.fullscreen = true;
-            // Remember the old scale and page numbers
-            this.oldScale = this.documentView.currentScale;
-            this.oldPageNum = this.pageNum;
-            
-            this._setViewerHeight();
+            if ((document.fullScreenElement && document.fullScreenElement !== null) ||    // alternative standard method
+                (!document.mozFullScreenElement && !document.webkitFullScreenElement && !document.webkitFullscreenElement)) // current working methods
+            {
+               Alfresco.logger.debug("Leaving full screen mode");
+               
+               this.fullscreen = false;
+               this.documentView.fullscreen = false;
+               this.documentView.setScale(this.oldScale);
 
-            this.onResize.fire();
-            
-            // Render any pages that have appeared
-            this.documentView.setScale(this.documentView.parseScale("page-fit"));
-            // Now redefine the row margins
-            this.documentView.alignRows();
-            this._scrollToPage(this.pageNum);
+               this._setViewerHeight();
+               
+               this.onResize.fire();
+               
+               // Now redefine the row margins
+               this.documentView.alignRows();
+               this._scrollToPage(this.pageNum);
+               
+               // Re-add window resize behaviour
+               Event.addListener(window, "resize", this.onRecalculatePreviewLayout, this, true);
+            }
+            else
+            {
+               Alfresco.logger.debug("Entering full screen mode");
+               
+               this.documentView.fullscreen = true;
+               this.fullscreen = true;
+               // Remember the old scale and page numbers
+               this.oldScale = this.documentView.currentScale;
+               this.oldPageNum = this.pageNum;
+               
+               this._setViewerHeight();
+
+               this.onResize.fire();
+               
+               // Render any pages that have appeared
+               this.documentView.setScale(this.documentView.parseScale("page-fit"));
+               // Now redefine the row margins
+               this.documentView.alignRows();
+               this._scrollToPage(this.pageNum);
+            }
          }
       },
 
@@ -2484,13 +2493,9 @@
                   {
                      scale = tpw;
                   }
-                  else if (opw > minScale)
-                  {
-                     scale = opw;
-                  }
                   else
                   {
-                     scale = minScale;
+                     scale = opw;
                   }
                   // Make sure that the page is not zoomed in *too* far. 
                   // A limit of 125% max zoom is the default for the main view.

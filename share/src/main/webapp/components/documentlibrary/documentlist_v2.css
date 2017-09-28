@@ -390,9 +390,6 @@ body .doclist tr.yui-dt-highlighted
 
 .doclist .yui-dt-error
 {
-   background: red;
-   color: white;
-   font-weight: bold;
    margin: 1em auto;
    padding: 1em;
 }
@@ -439,7 +436,8 @@ body .doclist tr.yui-dt-highlighted
    margin-left: 20px;
 }
 
-.doclist .documents .thumbnail
+.doclist .documents .thumbnail,
+.doclist .documents .folder
 {
    cursor: pointer;
    display: block;
@@ -994,7 +992,6 @@ body .doclist tr.yui-dt-highlighted
 
 .alf-gallery-item .alf-gallery-item-thumbnail
 {
-   height: 100%;
    border: none;
    overflow: hidden;
    position: relative;

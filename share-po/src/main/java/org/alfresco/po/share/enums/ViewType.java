@@ -39,7 +39,8 @@ public enum ViewType
     DETAILED_VIEW("Detailed"),
     TABLE_VIEW("Table"),
     AUDIO_VIEW("Audio"),
-    MEDIA_VIEW("media_table");
+    MEDIA_VIEW("media_table"),
+    GALLERY_VIEW("Gallery");
 
     private String name;
 
@@ -61,7 +62,7 @@ public enum ViewType
      */
     public static ViewType getViewType(String name)
     {
-        PageUtils.checkMandotaryParam("name", name);
+        PageUtils.checkMandatoryParam("name", name);
 
         if (name.equalsIgnoreCase((SIMPLE_VIEW.getName())))
         {
@@ -82,6 +83,10 @@ public enum ViewType
         else if (name.equalsIgnoreCase((MEDIA_VIEW.getName())))
         {
             return MEDIA_VIEW;
+        }
+        else if (name.equalsIgnoreCase((GALLERY_VIEW.getName())))
+        {
+            return GALLERY_VIEW;
         }
 
         throw new IllegalArgumentException("Not able to find the view type for give name: " + name);

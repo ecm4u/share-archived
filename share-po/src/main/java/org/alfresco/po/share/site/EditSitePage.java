@@ -25,6 +25,8 @@
  */
 package org.alfresco.po.share.site;
 
+import org.alfresco.po.ElementState;
+import org.alfresco.po.HtmlPage;
 import org.alfresco.po.RenderElement;
 import org.alfresco.po.RenderTime;
 import org.openqa.selenium.By;
@@ -36,20 +38,40 @@ import org.openqa.selenium.By;
  * @author Michael Suzuki
  * @since 1.5
  */
+@SuppressWarnings("unchecked")
 public class EditSitePage extends CreateSitePage
 {
-    private static final By EDIT_SITE_FORM = By.cssSelector("form#alfresco-editSite-instance-form");
-
-    @SuppressWarnings("unchecked")
+    protected static final By SUBMIT_BUTTON = By.cssSelector("[id='EDIT_SITE_DIALOG_OK_label']");
+    
     public EditSitePage render()
     {
     	RenderTime timer = new RenderTime(maxPageLoadingTime);
-    	MODERATED_CHECKBOX_HELP_TEXT = By.cssSelector("span[id$='moderated-help-text']");
-        PRIVATE_CHECKBOX_HELP_TEXT = By.cssSelector("span[id$='private-help-text']");
-        PUBLIC_CHECKBOX_HELP_TEXT = By.cssSelector("span[id$='public-help-text']");
-        elementRender(timer, RenderElement.getVisibleRenderElement(EDIT_SITE_FORM));
+    	
+    	DIALOG_ID = "#EDIT_SITE_DIALOG";
+        
+        elementRender(timer, RenderElement.getVisibleRenderElement(SITE_DIALOG));
 
         return this;
+    }
+    
+    public HtmlPage editSite(String siteName, boolean isPrivate, boolean isModerated)
+    {
+
+                setSiteName(siteName);                
+                selectSiteVisibility(isPrivate, isModerated);
+
+                return selectOk().render();
+    }
+
+    /**
+     * Submits the Edit Site Form
+     * 
+     * @return HtmlPage
+     */
+    @Override
+    public HtmlPage selectOk()
+    {
+        return submit(SUBMIT_BUTTON, ElementState.DELETE_FROM_DOM).render();
     }
 
 }

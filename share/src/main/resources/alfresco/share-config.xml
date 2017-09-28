@@ -51,15 +51,23 @@
             <mode>manual</mode>
             <enable-auto-deploy-modules>true</enable-auto-deploy-modules>
          </module-deployment>
+         
          <use-checksum-dependencies>true</use-checksum-dependencies>
          <generate-css-data-images>true</generate-css-data-images>
+         
+         <!-- Specify the list of path patterns to deny access for (via ResourceController). -->
+         <deny-access-resource-paths>
+            <resource-path-pattern>^/WEB-INF/.*</resource-path-pattern>
+            <resource-path-pattern>.*/\.\./WEB-INF/.*</resource-path-pattern>
+            <resource-path-pattern>.*/classes/.*\.properties</resource-path-pattern>
+         </deny-access-resource-paths>
       </web-framework>
    </config>
 
    <config evaluator="string-compare" condition="Edition">
       <!-- footer logo and copyright text -->
       <footer>
-         <logo>alfresco-share-logo.png</logo>
+         <logo>alfresco-logo.svg</logo>
          <alt-text>Alfresco Share</alt-text>
          <css-class>footer-com</css-class>
          <label>label.copyright</label>
@@ -101,6 +109,7 @@
 
    <config evaluator="string-compare" condition="SitePages">
       <pages>
+         <page id="dashboard">dashboard</page>
          <page id="calendar">calendar</page>
          <page id="wiki-page">wiki-page?title=Main_Page</page>
          <page id="documentlibrary">documentlibrary</page>
@@ -248,6 +257,7 @@
          <workflow name="activiti$activitiInvitationModerated"/>
          <workflow name="activiti$activitiInvitationNominated"/>
          <workflow name="activiti$activitiInvitationNominatedAddDirect"/>
+         <workflow name="activiti$resetPassword"/>
       </hidden-workflows>
 
       <!-- A list of workflow tasks that are NOT displayed in Share  -->

@@ -58,10 +58,20 @@ public class MyActivitiesDashlet extends AbstractDashlet implements Dashlet
     private static final String DASHLET_DIV_PLACEHOLDER = "div.dashlet.activities";
     private static final By MY_ACTIVITIES_BUTTON = By.cssSelector("button[id$='default-user-button']");
     private static final By MY_ACTIVITIES_ITEM = By.cssSelector("div.activities div.visible ul.first-of-type li a");
+    private static final By ACTIVITIES_TYPE_BUTTON = By.cssSelector("button[id$='default-activities-button']");
+    private static final By ACTIVITIES_TYPE_ITEM = By.cssSelector("div.activities div.visible ul.first-of-type li a");
     private static final By HISTORY_BUTTON = By.cssSelector("button[id$='default-range-button']");
     private static final By DASHLET_LIST_OF_FILTER = By.cssSelector("div.activities div.visible ul.first-of-type li a");
     private static final By MY_ACTIVITIES_MORE_LINK = By
             .xpath("//div[@class='activity']/following::div[@class='hidden']/preceding-sibling::div[@class='more']/a");
+    
+    private static final String entrySelector = "div.content>span.detail";
+    private static final String linkSelector = entrySelector + ">a";
+    private static final String usernameSelector = linkSelector + "[class^='theme-color']";
+    private static final String groupSelector = entrySelector + ">em";
+    private static final String siteSelector = linkSelector + "[class^='site-link']";
+    private static final String contentSelector = linkSelector + "[class*='item-link']";
+
 
     public enum LinkType
     {
@@ -87,7 +97,7 @@ public class MyActivitiesDashlet extends AbstractDashlet implements Dashlet
     private void populateData()
     {
         activity = new ArrayList<ActivityShareLink>();
-        ArrayList<ShareLink> shareLinks = new ArrayList<>();
+//        ArrayList<ShareLink> shareLinks = new ArrayList<>();
 
         try
         {
@@ -104,46 +114,97 @@ public class MyActivitiesDashlet extends AbstractDashlet implements Dashlet
 
             for (WebElement div : links)
             {
-                WebElement userLink = div.findElement(By.cssSelector("div.content>span.detail>a[class^='theme-color']"));
-
-                ShareLink user = new ShareLink(userLink, driver, factoryPage);
-
+                String groupName = "";
+                ShareLink user = null;
+                ShareLink site = null;
+                ShareLink document = null;
+                
+                // Get Activity Description        
                 String description = div.findElement(By.cssSelector("div.content>span.detail")).getText();
-
-                if (div.findElements(By.cssSelector("div.content>span.detail>a")).size() < 2)
-                {
-                    activity.add(new ActivityShareLink(user, description));
+                
+            	// Get Username ShareLink
+            	try 
+            	{
+                	// Group Activities will not have username links
+                	WebElement userLink = div.findElement(By.cssSelector(usernameSelector));
+                	
+                	user = new ShareLink(userLink, driver, factoryPage);
                 }
-
-                else if (div.findElements(By.cssSelector("div.content>span.detail>a")).size() == 2)
+                catch(NoSuchElementException nse)
                 {
-
-                    if (div.findElements(By.cssSelector("div.content>span.detail>a[class^='theme-color']")).size() > 1)
-                    {
-                        List<WebElement> userLinks = div.findElements(By.cssSelector("div.content>span.detail>a[class^='theme-color']"));
-                        for (WebElement element : userLinks)
-                        {
-                            shareLinks.add(new ShareLink(element, driver, factoryPage));
-                        }
-                        activity.add(new ActivityShareLink(shareLinks.get(0), shareLinks.get(1), description));
-                    }
-                    else
-                    {
-                        WebElement siteLink = div.findElement(By.cssSelector("div.content>span.detail>a[class^='site-link']"));
-                        ShareLink site = new ShareLink(siteLink, driver, factoryPage);
-                        activity.add(new ActivityShareLink(user, site, description));
-                    }
+                	// Activity is not User related.
                 }
-
-                else if (div.findElements(By.cssSelector("div.content>span.detail>a")).size() > 2)
+                
+                // Get Activity GroupName                
+                try 
                 {
-                    WebElement siteLink = div.findElement(By.cssSelector("div.content>span.detail>a[class^='site-link']"));
-                    ShareLink site = new ShareLink(siteLink, driver, factoryPage);
-
-                    WebElement documentLink = div.findElement(By.cssSelector("div.content>span.detail>a[class*='item-link']"));
-                    ShareLink document = new ShareLink(documentLink, driver, factoryPage);
-                    activity.add(new ActivityShareLink(user, document, site, description));
+                	groupName = div.findElement(By.cssSelector(groupSelector)).getText();
                 }
+                catch(NoSuchElementException nse)
+                {
+                	// Activity is not Group related.
+                }
+                
+            	// Get Site ShareLink
+            	try 
+            	{
+                	WebElement siteLink = div.findElement(By.cssSelector(siteSelector));
+                	
+                	site = new ShareLink(siteLink, driver, factoryPage);
+                }
+                catch(NoSuchElementException nse)
+                {
+                	// Activity is not Site related.
+                }
+            	
+            	// Get Content ShareLink
+            	try 
+            	{
+                	WebElement contentLink = div.findElement(By.cssSelector(contentSelector));
+                	
+                	document = new ShareLink(contentLink, driver, factoryPage);
+                }
+                catch(NoSuchElementException nse)
+                {
+                	// Activity is not Content related.
+                }
+            	
+            	activity.add(new ActivityShareLink(user, document, site, groupName, description));     	
+
+//                if (div.findElements(By.cssSelector(linkSelector)).size() < 2)
+//                {
+//                    activity.add(new ActivityShareLink(user, description));
+//                }
+//
+//                else if (div.findElements(By.cssSelector(linkSelector)).size() == 2)
+//                {
+//
+//                    if (div.findElements(By.cssSelector(usernameSelector)).size() > 1)
+//                    {
+//                        List<WebElement> userLinks = div.findElements(By.cssSelector(usernameSelector));
+//                        for (WebElement element : userLinks)
+//                        {
+//                            shareLinks.add(new ShareLink(element, driver, factoryPage));
+//                        }
+//                        activity.add(new ActivityShareLink(shareLinks.get(0), shareLinks.get(1), description));
+//                    }
+//                    else
+//                    {
+//                        WebElement siteLink = div.findElement(By.cssSelector(siteSelector));
+//                        site = new ShareLink(siteLink, driver, factoryPage);
+//                        activity.add(new ActivityShareLink(user, site, description));
+//                    }
+//                }
+//
+//                else if (div.findElements(By.cssSelector(linkSelector)).size() > 2)
+//                {
+//                    WebElement siteLink = div.findElement(By.cssSelector(siteSelector));
+//                    site = new ShareLink(siteLink, driver, factoryPage);
+//
+//                    WebElement documentLink = div.findElement(By.cssSelector(contentSelector));
+//                    document = new ShareLink(documentLink, driver, factoryPage);
+//                    activity.add(new ActivityShareLink(user, document, site, description));
+//                }
 
             }
         }
@@ -214,7 +275,7 @@ public class MyActivitiesDashlet extends AbstractDashlet implements Dashlet
      * @param name identifier to match against link title
      * @param type LinkType that determines document, site or user type link
      */
-    private synchronized ActivityShareLink selectLink(final String name, LinkType type)
+    public synchronized ActivityShareLink selectLink(final String name, LinkType type)
     {
         if (name == null)
         {
@@ -338,6 +399,48 @@ public class MyActivitiesDashlet extends AbstractDashlet implements Dashlet
 
     }
 
+    
+    /**
+     * Select option from "My Activities" drop down
+     *
+     * @param myActivitiesOption String
+     * @return {@link ShareLink} collection
+     * <br/><br/>author Cristina.Axinte
+     */
+    public HtmlPage selectOptionFromActivitiesType(String activitiesTypeOption)
+    {
+        if (activitiesTypeOption == null)
+        {
+            throw new UnsupportedOperationException("Activity type is required");
+        }
+        try
+        {
+            WebElement activityType = driver.findElement(ACTIVITIES_TYPE_BUTTON);
+            activityType.click();
+
+            List<WebElement> filterElements = driver.findElements(ACTIVITIES_TYPE_ITEM);
+            if (filterElements != null)
+            {
+                for (WebElement webElement : filterElements)
+                {
+                    if (webElement.getText().equals(activitiesTypeOption))
+                    {
+                        webElement.click();
+                        return getCurrentPage();
+                    }
+                }
+            }
+
+        }
+        catch (NoSuchElementException nse)
+        {
+            logger.error("Activity Type option not present" + nse.getMessage());
+        }
+        throw new PageOperationException(activitiesTypeOption + " option not present.");
+
+    }
+    
+    
     /**
      * Select option from history filter drop down
      *

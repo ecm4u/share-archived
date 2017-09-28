@@ -28,7 +28,7 @@ package org.alfresco.po.share.site.document;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.alfresco.po.share.site.document.DocumentAction.CHNAGE_TYPE;
+import static org.alfresco.po.share.site.document.DocumentAction.CHANGE_TYPE;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,6 +40,7 @@ import org.alfresco.po.HtmlPage;
 import org.alfresco.po.exception.PageException;
 import org.alfresco.po.exception.PageOperationException;
 import org.alfresco.po.share.RepositoryPage;
+import org.alfresco.po.share.SharePopup;
 import org.alfresco.po.share.enums.Encoder;
 import org.alfresco.po.share.exception.ShareException;
 import org.alfresco.po.share.site.SitePage;
@@ -102,7 +103,7 @@ public abstract class DetailsPage extends SitePage
     @SuppressWarnings("unused")
     private static final String MANAGE_RULES = "div[class$='-permissions'] a";
     public static final String TAKE_OWNERSHIP = "//span[text()='Become Owner']";
-
+    public String deleteAction;
     public enum ShareLinks
     {
         COPY_LINK_TO_SHARE_THIS_PAGE("Copy this link to share the current page"), COPY_LINK_FOR_WEBDEV_URL("copy link for webdav url");
@@ -720,7 +721,7 @@ public abstract class DetailsPage extends SitePage
     /**
      * Confirm delete dialog acceptance action.
      */
-    protected void confirmDelete()
+    public void confirmDelete()
     {
         try
         {
@@ -1690,10 +1691,19 @@ public abstract class DetailsPage extends SitePage
     {
         WebElement button = findAndWait(By.cssSelector("div.document-delete>a"));
         button.click();
-        confirmDelete();
+        confirmDeleteAction();
         return getCurrentPage();
     }
 
+    /**
+     * Mimics the action of deleting a document/folder.
+     */
+    public HtmlPage confirmDeleteAction()
+    {
+    	deleteAction = factoryPage.getValue("delete.button.label");
+	    SharePopup confirmDelete = getCurrentPage().render();
+	    return confirmDelete.clickActionByName(deleteAction);
+    }
     /**
      * Select link Copy to... from Actions
      *
@@ -1747,31 +1757,50 @@ public abstract class DetailsPage extends SitePage
         throw new PageOperationException("Unable to find " + link + " Link at a page");
     }
 
-    private void selectChangeType()
+    private HtmlPage selectChangeType()
     {
         try
         {
-            WebElement changeTypeLink = findAndWait(By.cssSelector(CHNAGE_TYPE.getCssValue() + " a"));
+            WebElement changeTypeLink = findAndWait(By.cssSelector(CHANGE_TYPE.getCssValue() + " a"));
             changeTypeLink.click();
+            return factoryPage.getPage(driver).render();
 
         }
         catch (TimeoutException te)
         {
-            throw new ShareException("Unable to find " + CHNAGE_TYPE);
+            throw new ShareException("Unable to find " + CHANGE_TYPE);
         }
     }
 
     public HtmlPage changeType(String typeValue)
-    {
-        selectChangeType();
-        ChangeTypePage changeTypePage = factoryPage.instantiatePage(driver,ChangeTypePage.class).render();
-        if (!changeTypePage.getTypes().contains(typeValue))
+    {        
+        ChangeTypePage changeTypePage = selectChangeType().render();
+        
+        List<String> availableTypes = changeTypePage.getTypes();
+        logger.info("Types Found: " + availableTypes.size());
+        
+        try 
         {
-            throw new ShareException(typeValue + " isn't present in the list");
+	        int typeIndex = availableTypes.indexOf(typeValue);
+	        
+	        logger.info("Type Found at index: " + typeIndex);
+	        
+	        if (typeIndex <= 0)
+	        {
+	            throw new ShareException(typeValue + " isn't present in the list");
+	        }
+	        else
+	        {
+	            changeTypePage.selectChangeTypeByIndex(typeIndex);
+	            changeTypePage.selectSave().render();
+	            waitUntilAlert();
+	        }
         }
-        changeTypePage.selectChangeType(typeValue);
-        changeTypePage.selectSave();
-        waitUntilAlert();
+        catch(ClassCastException | NullPointerException e)
+        {
+        	throw new ShareException("Error getting the index of: " + typeValue, e);
+        }
+
         return getCurrentPage();
     }
     
@@ -1784,8 +1813,8 @@ public abstract class DetailsPage extends SitePage
     {
         try
         {
-            selectChangeType();
-            ChangeTypePage changeTypePage = factoryPage.instantiatePage(driver,ChangeTypePage.class).render();
+        	ChangeTypePage changeTypePage = selectChangeType().render();;
+            
             if (changeTypePage.getTypes().contains(typeValue))
             {
                 return true;

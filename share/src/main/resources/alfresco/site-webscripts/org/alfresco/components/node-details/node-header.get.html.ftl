@@ -46,7 +46,7 @@
                      </#if>
                      <#if lockUser??>
                         <div class="status-banner theme-bg-color-2 theme-border-4">
-                        <#assign lockedByLink = userProfileLink(lockUser.userName, lockUser.displayName, 'class="theme-color-1"') >
+                        <#assign lockedByLink = userProfileLink(lockUser.userName, lockUser.displayName, 'class="theme-color-1"', lockUser.isDeleted!false) >
                         <#if lockUser.userName == user.name>
                            <#assign status><#if node.isLocked>lock-owner<#else>editing</#if></#assign>
                            <span class="${status}">${msg("banner." + status)}</span>
@@ -59,7 +59,7 @@
                      <#assign lockUser = node.properties["cm:lockOwner"]>
                      <#if lockUser??>
                         <div class="status-banner theme-bg-color-2 theme-border-4">
-                        <#assign lockedByLink = userProfileLink(lockUser.userName, lockUser.displayName, 'class="theme-color-1"') >
+                        <#assign lockedByLink = userProfileLink(lockUser.userName, lockUser.displayName, 'class="theme-color-1"', lockUser.isDeleted!false) >
                         <#if lockUser.userName == user.name>
                            <span class="lock-owner">${msg("banner.lock-owner")}</span>
                         <#else>
@@ -95,7 +95,7 @@
                      <span class="item-modifier">
                               <#assign modifyUser = node.properties["cm:modifier"]>
                               <#assign modifyDate = node.properties["cm:modified"]>
-                              <#assign modifierLink = userProfileLink(modifyUser.userName, modifyUser.displayName, 'class="theme-color-1"') >
+                              <#assign modifierLink = userProfileLink(modifyUser.userName, modifyUser.displayName, 'class="theme-color-1"', modifyUser.isDeleted!false) >
                               ${msg(modifyLabel, modifierLink, "<span id='${id}-modifyDate'>${modifyDate.iso8601}</span>")}
                      </span>
                   </#if>
@@ -124,6 +124,8 @@
                      </span>
                   </span>
                   </#if>
+               </div>
+               <#else>
                </div>
                </#if>
                <div class="clear"></div>

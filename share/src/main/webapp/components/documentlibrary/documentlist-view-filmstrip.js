@@ -592,9 +592,10 @@
          // Suffix of the content actions div id must match the onEventHighlightRow target id
          galleryItemActionsDiv.setAttribute('id', scope.id + '-actions-' + filmstripItemId);
          
-         // Only render the web-preview for the first filmstrip item and images
-         if (i == 0 || (record.node.mimetype != null && 
-               record.node.mimetype.substring(0, MIMETYPE_PREFIX_IMAGE.length) == MIMETYPE_PREFIX_IMAGE))
+         // Only render the web-preview for the first filmstrip item and images(only if configured so)
+         if (i == 0 || (!this.documentList.options.filmstripImageLazyLoading &&
+                        record.node.mimetype != null &&
+                        record.node.mimetype.substring(0, MIMETYPE_PREFIX_IMAGE.length) == MIMETYPE_PREFIX_IMAGE))
          {
             this.destroyWebPreview(scope, i);
             this.renderWebPreview(scope, i);
@@ -855,7 +856,7 @@
       // Just add the data table thumbnail once
       if (!document.getElementById(thumbnail.id))
       {
-         if (thumbnail.isContainer)
+     	 if (thumbnail.isContainer || (thumbnail.isLink && record.jsNode.linkedNode.isContainer))
          {
             elCell.innerHTML += '<span class="folder">' + (thumbnail.isLink ? '<span class="link"></span>' : '') + 
                   (scope.dragAndDropEnabled ? '<span class="droppable"></span>' : '') + thumbnail.html;
@@ -863,7 +864,7 @@
          }
          else
          {
-            elCell.innerHTML += (thumbnail.isLink ? '<span class="link"></span>' : '') + thumbnail.html;
+            elCell.innerHTML += '<span class="thumbnail">' + (thumbnail.isLink ? '<span class="link"></span>' : '') + thumbnail.html + '</span>';
          }
          var thumbnailElement = document.getElementById(thumbnail.id);
          if (thumbnailElement)

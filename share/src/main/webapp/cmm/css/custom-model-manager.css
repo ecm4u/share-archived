@@ -2,6 +2,7 @@
 #CMM h2,
 #CMM h3 {
    font-family: 'Open Sans Bold';
+   margin: 8px 0px;
 }
 
 /* Labels */
@@ -90,7 +91,8 @@
 }
 
 #CMM .alfresco-buttons-AlfButton {
-   padding: 6px 13px;
+   padding: 2px;
+   margin: 0 15px 0 0;
 }
 
 #CMM .alfresco-buttons-AlfButton.createButton,
@@ -172,6 +174,7 @@
 
 #FORM_EDITOR_CONSOLE #PROPERTY_PALETTE {
    min-width: 180px;
+   min-height: 42px;
 }
 #FORM_EDITOR_CONSOLE #PROPERTY_PALETTE > div.info {
    margin: 0;
@@ -188,7 +191,7 @@
 }
 #FORM_EDITOR_CONSOLE #PROPERTY_PALETTE .palette {
    border: none;
-   margin-top: 38px;
+   margin-top: 12px;
 }
 
 #FORM_EDITOR_CONSOLE .alfresco-dnd-DragAndDropItems .palette {
@@ -280,6 +283,7 @@
 
 #FORM_EDITOR_CONSOLE .alfresco-dnd-DragAndDropItems .palette .dojoDndItem {
    padding: 0;
+   border: none;
 }
 #FORM_EDITOR_CONSOLE .alfresco-dnd-DragAndDropItems .palette .alfresco-dnd-DragAndDropItem {
    margin: 0px 4px 6px 2px;
@@ -517,6 +521,7 @@ table.dojoDndAvatar tr.dojoDndAvatarItem .alfresco-dnd-DragAndDropTarget .previe
 #FORM_EDITOR_CONSOLE .alfresco-dnd-DragAndDropItems .dojoDndItem.dojoDndItemAnchor,
 #FORM_EDITOR_CONSOLE .alfresco-dnd-DragAndDropItems .dojoDndItem.dojoDndItemOver {
    background-color: transparent;
+   border: none;
 }
 
 #FORM_CANVAS.alfresco-forms-controls-BaseFormControl > .control-row .previewPanel {

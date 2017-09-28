@@ -238,7 +238,10 @@
           </list>
        </property>
    </bean>
-
+   
+   <bean id="javascript.compression.handler" parent="javascript.compression.handler.abstract" class="org.springframework.extensions.surf.ClosureJavaScriptCompressionHandler">
+   </bean>
+   
    <!-- Boostrap bean to look at Module Packages, aka Jar/amps -->
    <bean id="modulepackagemanager" class="org.alfresco.web.config.packaging.ModulePackageManager">
       <property name="shareManifest"  ref="slingshot.scriptprocessor.shareManifest" />
@@ -419,4 +422,9 @@
       <property name="dictionary"               ref="slingshot.scriptprocessor.dictionaryQuery" />
    </bean>
    
+   <!-- Filter for performing SSO Authentication such as NTLM -->
+   <bean id="SSOAuthenticationFilter" class="org.alfresco.web.site.servlet.SSOAuthenticationFilter" init-method="init">
+      <property name="endpoint" value="alfresco" />
+   </bean>
+
 </beans>

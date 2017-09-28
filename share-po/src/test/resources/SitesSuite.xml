@@ -78,6 +78,11 @@
    <class name="org.alfresco.po.share.site.SiteTest" />
   </classes>
  </test>
+ <test name="SiteLinksToDefaultPageTest">
+  <classes>
+   <class name="org.alfresco.po.share.site.SiteLinksToDefaultPageTest" />
+  </classes>
+ </test>
  <test name="WikiPageLibraryTest">
   <classes>
    <class name="org.alfresco.po.share.site.WikiPageLibraryTest" />
@@ -103,4 +108,10 @@
  		<class name="org.alfresco.po.share.site.DeleteSitePageTest" />
  	</classes>
  </test>
+ <test name="PendingRequestPageTest">
+ 	<classes>
+ 		<class name="org.alfresco.po.share.site.PendingRequestPageTest" />
+ 	</classes>
+ </test>
+ 
 </suite>

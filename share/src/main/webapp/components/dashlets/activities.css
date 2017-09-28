@@ -56,6 +56,8 @@
    float: left;
    text-align: center;
    width: 48px;
+   max-height: 48px;
+   overflow: hidden;
 }
 
 .activities .activity > .content,
@@ -79,6 +81,7 @@
 {
    background-repeat: no-repeat;
    padding: 1px 0 1px 18px;
+   font-size: 13px;
 }
 
 .activities .detail .blog

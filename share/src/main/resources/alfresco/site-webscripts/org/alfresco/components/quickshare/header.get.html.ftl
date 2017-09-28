@@ -22,10 +22,8 @@
                <div class="clear"></div>
             </div>
 
-            <#assign conditionvalueEdition = (context.properties["editionInfo"].edition)!"UNKNOWN">
-            <#assign conditionEditionEnterprise = conditionvalueEdition == "ENTERPRISE">
             <div class="quickshare-header-left">
-               <img src="${url.context}/res/themes/${theme}/images/logo<#if conditionEditionEnterprise>-enterprise</#if>.png">
+               <img width="180" src="${url.context}/res/components/images/alfresco-logo.svg">
             </div>
 
             <div class="quickshare-header-right">
@@ -35,6 +33,14 @@
                   </#list>
                </@markup>
             </div>
+            
+            <#if page.url.args.error! == "true">
+               <script>
+                  Alfresco.util.PopupManager.displayMessage({
+                     text: "${authfailureMessage?js_string}"
+                  });
+               </script>
+            </#if>
 
             <div class="clear"></div>
 

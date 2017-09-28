@@ -459,7 +459,7 @@ public class DocumentLibraryPage extends SitePage
             boolean noFiles = !hasFiles();
             if (logger.isTraceEnabled())
             {
-                logger.trace(String.format("Documet list has no files: %s", noFiles));
+                logger.trace(String.format("Document list has no files: %s", noFiles));
             }
 
             if (noFiles)
@@ -478,7 +478,10 @@ public class DocumentLibraryPage extends SitePage
                 List<FileDirectoryInfo> fileDirectoryList = new ArrayList<FileDirectoryInfo>();
                 for (WebElement result : results)
                 {
-                    String nodeRef = result.findElement(By.cssSelector("input[type='checkbox']")).getAttribute("value");
+                    WebElement element = result.findElement(By.cssSelector("input[type='checkbox']"));
+                    
+                    String nodeRef = element.getAttribute("value");
+                    
                     FileDirectoryInfo file = getFileDirectoryInfo(nodeRef, result);
                     logger.debug("adding file" + file.getName());
                     if (logger.isTraceEnabled())
@@ -929,7 +932,7 @@ public class DocumentLibraryPage extends SitePage
 
     public boolean isItemVisble(String contentName)
     {
-        PageUtils.checkMandotaryParam("contentName", contentName);
+        PageUtils.checkMandatoryParam("contentName", contentName);
         try
         {
             return null != findFileOrFolder(contentName);
