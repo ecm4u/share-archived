@@ -1,1 +1,6 @@
 .svn
+share-po/target/
+share-services/target/
+share/target/
+target/
+web-framework-commons/target/
