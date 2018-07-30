@@ -1322,9 +1322,12 @@
          }
       },
 
+/*   https://support.ecm4u.de/issues/6496#change-27794
+     replaced by latest code
       _aos_tryToLaunchOfficeByMsProtocolHandler: function dlA__aos_tryToLaunchOfficeByMsProtocolHandler(officeLauncher, protocolHandler, url)
       {
-          var protocolUrl = protocolHandler + ':ofe%7Cu%7C' + encodeURI(url);
+	alert(url);
+          var protocolUrl = protocolHandler + ':ofe%7Cu%7C' + url;
           var protocolHandlerPresent = false;
 
           var input = document.createElement('input');
@@ -1349,6 +1352,12 @@
                   });
               }
           }, 500);
+      },
+*/
+
+      _aos_tryToLaunchOfficeByMsProtocolHandler: function dlA__aos_tryToLaunchOfficeByMsProtocolHandler(officeLauncher, protocolHandler, url)
+      {
+         location.href = protocolHandler + ':ofe%7Cu%7C' + url;
       },
 
       _aos_launchOfficeOnIos: function dlA__aos_launchOfficeOnIos(officeLauncher, protocolHandler, url)
